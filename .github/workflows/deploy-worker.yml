@@ -1,0 +1,27 @@
+name: Deploy API worker to Cloudflare
+
+# Runs only when the worker changes. Deploys the Pages API backend
+# (purplebear-api) with wrangler.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: '58685495706b973821d77208248c66fc'
+          workingDirectory: worker
+          command: deploy

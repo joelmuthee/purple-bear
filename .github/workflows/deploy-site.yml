@@ -1,0 +1,30 @@
+name: Deploy site to Cloudflare Pages
+
+# Runs on every push to main that touches the public site (anything except the
+# worker, which has its own workflow). Replaces the flaky built-in Git webhook —
+# this project is a direct-upload Pages project, so we deploy with wrangler.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'worker/**'
+      - '**.md'
+
+# Cancel an in-flight deploy if a newer push lands, so the latest commit wins.
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: '58685495706b973821d77208248c66fc'
+          # `.cfignore` keeps worker/, node_modules, .wrangler etc. out of the upload.
+          command: pages deploy . --project-name=purple-bear --branch=main --commit-dirty=true
