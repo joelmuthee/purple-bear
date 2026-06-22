@@ -1,7 +1,7 @@
 // Purple Bear Admin
 const ADMIN_PASSWORD = 'purplebear25';
 const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
-const ADMIN_TOKEN = atob('cnlrZXItYWRtaW4tdG9rZW4tMjAyNi1zZWN1cmU=');
+const ADMIN_TOKEN = atob('cHVycGxlYmVhci1hZG1pbi10b2tlbi0yMDI2LXNlY3VyZQ==');
 const SHOP_URL = 'https://purplebear.essenceautomations.com'; // public storefront — used in WhatsApp messages to clients
 // Tier gate: Boost-to-top is a 3k Shop Records-and-up feature. Set false on a
 // one-off Shopfront build to hide the boost bulk-bar buttons. Default true.
