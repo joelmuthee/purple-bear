@@ -573,8 +573,8 @@ img { max-width: 100%; display: block; }
 .card-actions { display: flex; gap: 8px; margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
 .btn-card { flex: 1; text-align: center; padding: 11px 12px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--ink); font-family: inherit; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .btn-card:hover:not(:disabled) { background: var(--ink); color: var(--gold-light); border-color: var(--ink); }
-.btn-card.primary { background: var(--ink); color: var(--gold-light); border-color: var(--ink); }
-.btn-card.primary:hover:not(:disabled) { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+.btn-card.primary { background: var(--gold); color: #fff; border-color: var(--gold); }
+.btn-card.primary:hover:not(:disabled) { background: var(--gold-deep); color: #fff; border-color: var(--gold-deep); }
 .btn-card.soldout { background: var(--surface); color: var(--ink-faint); border-color: var(--line); }
 .btn-card.soldout:hover { background: var(--ink); color: var(--gold-light); border-color: var(--ink); }
 .btn-card .wa-icon, .btn-card .ig-icon { flex-shrink: 0; }
