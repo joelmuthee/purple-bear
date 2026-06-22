@@ -106,16 +106,6 @@ const SHOE_BRANDS = [
   // Boots
   ["timberland",       "Timberland",       "Boots"],
   ["chelsea boot",     null,               "Boots"],
-  // Baby / first-walker shoes
-  ["first walker",     null,               "Baby Shoes"],
-  ["first step",       null,               "Baby Shoes"],
-  ["pre walker",       null,               "Baby Shoes"],
-  ["prewalker",        null,               "Baby Shoes"],
-  ["bootie",           null,               "Baby Shoes"],
-  ["booties",          null,               "Baby Shoes"],
-  [/\bbaby\b/,         null,               "Baby Shoes"],
-  [/\binfant\b/,       null,               "Baby Shoes"],
-  [/\bnewborn\b/,      null,               "Baby Shoes"],
   // Generic style fallbacks (no brand) → kids categories
   ["school shoe",      null,               "School Shoes"],
   ["sneaker",          null,               "Sneakers"],
@@ -445,17 +435,16 @@ async function classifyPostWithVision(env, caption, imageUrl) {
 1. Is this a single product (one specific pair or stocked style) for sale? (is_product true|false)
 2. What brand / style is it? (name — short, e.g. "Nike Air Force", "Bata School Shoes", or "New Pair" if unknown)
 3. What category? Pick EXACTLY one from this list — never invent another:
-   Sneakers, Sandals, School Shoes, Boots, Crocs, Slides, Loafers, Baby Shoes
+   Sneakers, Sandals, School Shoes, Boots, Crocs, Slides, Loafers
 
 Category guide (look carefully — this is the hardest call):
-- Sneakers: casual athletic / lifestyle shoes — trainers, canvas, Air Force, Jordan, Adidas, Puma, light-up shoes, rubber shoes.
+- Sneakers: casual athletic / lifestyle shoes — trainers, canvas, Air Force, Jordan, Adidas, Puma, light-up shoes, rubber shoes. Also infant / first-walker / soft-bootie shoes.
 - Sandals: open shoes with straps, gladiators, summer sandals.
 - School Shoes: plain black/brown formal closed school shoes (Bata, Toughees, Clarks).
 - Boots: ankle-high or taller — chelsea boots, winter boots, Timberland-style.
 - Crocs: rubber clogs with holes (Crocs and lookalikes).
 - Slides: slip-on slides, slippers, flip-flops, pool sliders.
 - Loafers: slip-on dress/formal shoes, moccasins, mary-janes, ballet flats, girls' doll shoes.
-- Baby Shoes: infant / first-walker / pre-walker shoes, soft booties, crib shoes for babies.
 
 This shop ONLY sells kids' shoes. If the photo shows clothing, a bag, an adult-only shoe, or anything that isn't children's footwear, set is_product=false. (Sandals and slides ARE valid here — they're kids' footwear.)
 
@@ -511,7 +500,7 @@ async function classifyPostWithAi(env, caption) {
 Reply with strict minified JSON only, no prose, no code fences.
 
 Schema:
-{"is_product": true|false, "name": "<short brand + style OR generic descriptor>", "category": "<exactly one of: Sneakers, Sandals, School Shoes, Boots, Crocs, Slides, Loafers, Baby Shoes>", "reason": "<3-6 words>"}
+{"is_product": true|false, "name": "<short brand + style OR generic descriptor>", "category": "<exactly one of: Sneakers, Sandals, School Shoes, Boots, Crocs, Slides, Loafers>", "reason": "<3-6 words>"}
 
 This shop ONLY sells kids' shoes — never output a clothing/bag category. Sandals and Slides ARE valid (kids' footwear).
 
@@ -520,7 +509,7 @@ Rules:
 - is_product = false for shop intros, owner photos, marketing banners, holiday greetings, generic "DM us" announcements with no specific product.
 - Decode shorthand/brands: "AF1" → Nike Air Force; "Bata"/"Toughees" → School Shoes; "NB" → New Balance.
 - name MUST be brand+style when known. Strip prices, sizes, phone numbers, hashtags. If brand unknown but type clear, name = generic descriptor (e.g. "Light-up Sneakers", "Velcro School Shoes"). If truly unknown, name = "New Pair".
-- category: match to the EXACT list. Closed black/brown formal kids shoes → School Shoes. Rubber clogs with holes → Crocs. Slip-on slides/slippers → Slides. Infant/first-walker → Baby Shoes. Generic "shoes" with no clear type → Sneakers.
+- category: match to the EXACT list. Closed black/brown formal kids shoes → School Shoes. Rubber clogs with holes → Crocs. Slip-on slides/slippers → Slides. Infant/first-walker → Sneakers. Generic "shoes" with no clear type → Sneakers.
 
 Caption: """${trimmed}"""`;
   try {
@@ -548,7 +537,7 @@ Caption: """${trimmed}"""`;
 // Ryker stocks men's clothing + footwear only. Coerce any AI-suggested category
 // that's outside the allowed list to either the closest legal option or null.
 const SHOE_CATEGORIES = new Set([
-  "Sneakers","Sandals","School Shoes","Boots","Crocs","Slides","Loafers","Baby Shoes",
+  "Sneakers","Sandals","School Shoes","Boots","Crocs","Slides","Loafers",
 ]);
 function coerceCategory(c) {
   if (!c) return null;
@@ -564,7 +553,7 @@ function coerceCategory(c) {
   if (/^(crocs?|clogs?)$/i.test(lower)) return "Crocs";
   if (/^(slides?|slippers?|flip[\s\-]?flops?)$/i.test(lower)) return "Slides";
   if (/^(loafers?|moccasins?|mary\s*janes?|doll\s*shoes?|ballet(?:\s*flats?)?|flats?|formal|dress\s*shoes?)$/i.test(lower)) return "Loafers";
-  if (/^(baby\s*shoes?|first\s*walkers?|pre[\s\-]?walkers?|booties?|bootie|crib\s*shoes?|infant|newborn)$/i.test(lower)) return "Baby Shoes";
+  if (/^(baby\s*shoes?|first\s*walkers?|pre[\s\-]?walkers?|booties?|bootie|crib\s*shoes?|infant|newborn)$/i.test(lower)) return "Sneakers";
   // Generic "shoes" → Sneakers (the most common kids item); else null so owner picks.
   if (/^shoes?$/i.test(lower)) return "Sneakers";
   return null;
