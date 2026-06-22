@@ -637,7 +637,9 @@ img { max-width: 100%; display: block; }
 .pay-pill { font-size: 12px; padding: 4px 12px; border-radius: 999px; background: rgba(163,56,204,0.12); border: 1px solid rgba(163,56,204,0.35); color: var(--gold-light); }
 /* Visit column */
 .footer-address { font-style: normal; font-size: 14px; line-height: 1.7; color: rgba(217,204,240,0.8); }
-.footer-directions { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--gold); font-size: 13px; font-weight: 600; transition: color 0.2s; }
+.footer-phone { display: block; margin-top: 12px; font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; }
+.footer-phone:hover { color: var(--gold); }
+.footer-directions { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--gold); font-size: 13px; font-weight: 600; transition: color 0.2s; }
 .footer-directions svg { width: 16px; height: 16px; }
 .footer-directions:hover { color: var(--gold-light); }
 /* Shop column */
