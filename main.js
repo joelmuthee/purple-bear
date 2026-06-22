@@ -311,27 +311,10 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllDropdowns(); });
   }
 
-  // Group a size token for the size dropdown (apparel + footwear verticals).
-  function sizeGroup(s) {
-    const u = String(s).toUpperCase();
-    if (u.startsWith('UK')) return 'Shoe size (UK)';
-    if (u.startsWith('EU')) return 'Shoe size (EU)';
-    if (/LARGE|MEDIUM|SMALL/.test(u) || /^(XS|S|M|L|XL|XXL|XXXL|\dXL)$/.test(u)) return 'Clothing (S-XL)';
-    if (/\d/.test(u)) return 'Waist / number';
-    return 'Other';
-  }
-
   function buildSizePills() {
     const sizes = getAllSizesForFilter();
     if (sizes.length < 2) { sizePills.innerHTML = ''; return; }
-    const order = ['Clothing (S-XL)', 'Waist / number', 'Shoe size (UK)', 'Shoe size (EU)', 'Other'];
-    const grouped = {};
-    sizes.forEach(s => { (grouped[sizeGroup(s)] = grouped[sizeGroup(s)] || []).push(s); });
-    const groups = [{ label: null, options: [{ val: 'all', text: 'All sizes' }] }];
-    order.forEach(g => {
-      if (!grouped[g] || !grouped[g].length) return;
-      groups.push({ label: g, options: grouped[g].map(s => ({ val: s, text: s })) });
-    });
+    const groups = [{ label: null, options: [{ val: 'all', text: 'All sizes' }].concat(sizes.map(s => ({ val: s, text: `EU ${s}` }))) }];
     sizePills.innerHTML = dropdownHTML({ kind: 'size', value: currentSize, ariaLabel: 'Filter by size', groups });
   }
 
