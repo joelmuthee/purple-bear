@@ -2861,7 +2861,7 @@ adminItemSearchInput?.addEventListener('input', () => {
 // new posts", reviews AI-classified previews, then commits the approved
 // subset. Dedupe is server-side by `ig_<shortcode>` so the button is
 // idempotent and never re-adds an item already in the catalog.
-const IG_USER_ID = ''; // @purple_bearke — resolve numeric id at seed time, then hard-code
+const IG_USER_ID = '42076928572'; // @purple_bearke (Purple Bear Kids Store)
 const MENSWEAR_CATEGORIES = ['Sneakers', 'Sandals', 'School Shoes', 'Boots', 'Crocs', 'Slides', 'Loafers', 'Baby Shoes'];
 
 let igSyncCandidates = [];

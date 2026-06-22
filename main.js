@@ -827,7 +827,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     const shopName = settings.shopName || 'Purple Bear';
     document.title = shopName + ' · Paused';
 
-    const tagline = settings.tagline || 'Kids' Shoes · Nairobi';
+    const tagline = settings.tagline || "Kids' Shoes · Nairobi";
     const igHandle = (settings.instagramHandle || 'purple_bearke').replace(/^@/, '');
     const igLink = igHandle ? ('https://www.instagram.com/' + igHandle + '/') : '';
     const waLink = 'https://wa.me/254720615606?text=' + encodeURIComponent('Hi Essence, I\'d like to bring ' + shopName + ' back online. Tell me about the one-off option.');

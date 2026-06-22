@@ -671,7 +671,7 @@ async function runDailyReport(env, force) {
 // Stagger offset: :10 past the wave hour (Iman holds :00 [disabled],
 // ThriftLux :20) — IG rate-limits by source IP and the fleet shares
 // Cloudflare egress IPs, so shops must not all fetch at the same second.
-const IG_AUTOSYNC_USER_ID = ""; // @purple_bearke — resolve numeric id at seed time, then hard-code
+const IG_AUTOSYNC_USER_ID = "42076928572"; // @purple_bearke (Purple Bear Kids Store)
 const API_ORIGIN = "https://purplebear-api.stawisystems.workers.dev";
 const AUTOSYNC_MAX_ITEMS = 20;
 
@@ -1252,6 +1252,7 @@ export default {
       const username = url.searchParams.get("username");
       const directUserId = url.searchParams.get("user_id");
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10), 50);
+      const maxId = url.searchParams.get("max_id") || "";
       if (!username && !directUserId) return json({ error: "username or user_id required" }, 400);
 
       try {
@@ -1263,7 +1264,7 @@ export default {
         const ledgerRaw = await env.BAGS.get("ig_synced_codes");
         const syncedCodes = new Set(ledgerRaw ? JSON.parse(ledgerRaw) : []);
 
-        const feedData = await fetchIgFeed({ username, userId: directUserId, count: 50 });
+        const feedData = await fetchIgFeed({ username, userId: directUserId, count: 50, maxId });
         if (!feedData.items) return json({ error: feedData.error || "feed empty" }, 502);
 
         const fresh = feedData.items.filter(it => !existingIds.has(`ig_${it.shortcode}`) && !syncedCodes.has(it.shortcode)).slice(0, limit * 2);
@@ -1330,6 +1331,8 @@ export default {
           items: candidates,
           profile: feedData.profile,
           ai_enabled: !!env.AI,
+          more_available: feedData.more_available,
+          next_max_id: feedData.next_max_id,
         });
       } catch (err) {
         return json({ error: err.message }, 502);
