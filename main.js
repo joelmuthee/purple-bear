@@ -180,7 +180,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   }
 
   function whatsappLink(item, soldOut, selectedSize) {
-    const phone = settings.whatsappNumber || '254710172503';
+    const phone = settings.whatsappNumber || '254725672399';
     const body = enquireBody(item, soldOut, selectedSize);
     // Append the item's /p/<id> share page — WhatsApp previews it as a card with the
     // product photo + name + price. Still opens straight to WhatsApp (no app picker).
@@ -753,7 +753,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     e.preventDefault();
     const items_saved = items.filter(i => wishlist.has(i.id));
     if (!items_saved.length) return;
-    const phone = settings.whatsappNumber || '254710172503';
+    const phone = settings.whatsappNumber || '254725672399';
     const lines = items_saved.map((i, idx) => `${idx + 1}. *${i.name}*${i.price > 0 ? ' (' + fmtPrice(i.price) + ')' : ''}`);
     const msg = `Hi Purple Bear! I'd like to enquire about these saved items:\n\n${lines.join('\n')}\n\nAre they available?`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');

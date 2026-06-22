@@ -3166,7 +3166,7 @@ function posPrintReceipt() {
   document.getElementById('posReceiptPrint').innerHTML = `
     <div class="rcpt">
       <div class="rcpt-head">Purple Bear</div>
-      <div class="rcpt-sub">Nairobi<br>0710 172 503</div>
+      <div class="rcpt-sub">Nairobi<br>0725 672 399</div>
       <hr>
       <div class="rcpt-row"><span>${escapeHtml(s.name)}</span></div>
       <div class="rcpt-row"><span>Size ${escapeHtml(s.size)} · ${s.qty} × ${fmtKsh(s.amount)}</span><span>${fmtKsh(total)}</span></div>
@@ -3276,7 +3276,7 @@ function buildReceiptCanvas(s, logoImg) {
 
   x.fillStyle = '#8a7460'; x.font = '13px Arial';
   x.fillText('Nairobi', W / 2, y);
-  x.fillText('0710 172 503', W / 2, y + 18); y += seg.addr;
+  x.fillText('0725 672 399', W / 2, y + 18); y += seg.addr;
 
   const div = () => { x.strokeStyle = '#ebe0c9'; x.lineWidth = 1; x.beginPath(); x.moveTo(M, y); x.lineTo(W - M, y); x.stroke(); };
   div(); y += seg.div1;
