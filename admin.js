@@ -591,6 +591,7 @@ async function saveItem() {
   const price = priceRaw === '' ? 0 : parseInt(priceRaw, 10);
   const desc = document.getElementById('descInput').value.trim();
   const category = getCategoryValue();
+  const gender = document.getElementById('genderInput')?.value || 'unisex';
   const stock = getStockFromForm();
 
   if (!name) { showToast('Item name is required.'); return; }
@@ -640,6 +641,7 @@ async function saveItem() {
         if (!bag) throw new Error('Item no longer exists — refresh admin');
         bag.name = name;
         bag.category = category;
+        bag.gender = gender;
         bag.description = desc;
         bag.price = price;
         bag.stock = { ...bag.stock, ...stock };
@@ -657,7 +659,7 @@ async function saveItem() {
     } else {
       if (!stagedImage) { showToast('Add an item image.'); setSaving(false); return; }
       const id = 'item_' + Date.now();
-      const newBag = { id, name, category, description: desc, price, stock, sales: [], image: imagePath, createdAt: new Date().toISOString() };
+      const newBag = { id, name, category, gender, description: desc, price, stock, sales: [], image: imagePath, createdAt: new Date().toISOString() };
       if (extraUrls.length) newBag.images = [imagePath, ...extraUrls];
       if (stagedInstagramUrl) newBag.instagramUrl = stagedInstagramUrl;
       if (itemSalePrice) newBag.salePrice = itemSalePrice;
@@ -761,6 +763,7 @@ function resetForm() {
   document.getElementById('editingId').value = '';
   document.getElementById('nameInput').value = '';
   setCategoryValue('');
+  document.getElementById('genderInput').value = 'unisex';
   document.getElementById('descInput').value = '';
   document.getElementById('priceInput').value = '';
   document.getElementById('itemSalePriceInput').value = '';
@@ -795,6 +798,7 @@ function editItem(id) {
   document.getElementById('editingId').value = id;
   document.getElementById('nameInput').value = bag.name;
   setCategoryValue(bag.category || '');
+  document.getElementById('genderInput').value = (bag.gender === 'boy' || bag.gender === 'girl') ? bag.gender : 'unisex';
   document.getElementById('descInput').value = bag.description || '';
   document.getElementById('priceInput').value = bag.price;
   document.getElementById('itemSalePriceInput').value = bag.salePrice || '';
@@ -2954,7 +2958,8 @@ async function commitIgSync() {
     picks.push({
       shortcode: it.shortcode,
       name: (nameEl?.value || it.suggested?.name || '').trim() || 'New Item',
-      category: catEl?.value || it.suggested?.category || 'Shirts',
+      category: catEl?.value || it.suggested?.category || 'Sneakers',
+      gender: it.suggested?.gender || 'unisex',
       stock: it.suggested?.stock || { 'One Size': 1 },
       price: priceRaw === '' ? 0 : (parseInt(priceRaw, 10) || 0),
       description: it.suggested?.description || '',

@@ -5,6 +5,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   const gallery = document.getElementById('gallery');
   const filterMeta = document.getElementById('filterMeta');
   const availPills = document.getElementById('availPills');
+  const genderPills = document.getElementById('genderPills');
   const catPills = document.getElementById('catPills');
   const sizePills = document.getElementById('sizePills');
   const PAGE_SIZE = 15;
@@ -15,6 +16,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   let settings = {};
   let suspended = false;
   let currentAvail = 'all';
+  let currentGender = 'all';
   let currentCat = 'all';
   let currentSize = 'all';
   let currentSort = 'default';
@@ -209,6 +211,25 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     return [...new Set(items.map(i => i.category).filter(Boolean))].sort();
   }
 
+  // Gender: stored as 'boy' | 'girl' | 'unisex' on each item. Missing = unisex.
+  function itemGender(item) {
+    const g = String(item.gender || '').toLowerCase();
+    return (g === 'boy' || g === 'girl') ? g : 'unisex';
+  }
+  const GENDER_LABEL = { boy: 'Boys', girl: 'Girls', unisex: 'Unisex' };
+  // Only show the gender filter once the catalog actually carries the tags.
+  function genderInUse() {
+    return items.some(i => i.gender === 'boy' || i.gender === 'girl');
+  }
+  function buildGenderPills() {
+    if (!genderInUse()) { genderPills.innerHTML = ''; return; }
+    const present = new Set(items.map(itemGender));
+    const order = ['boy', 'girl', 'unisex'];
+    const opts = [{ val: 'all', text: 'Boys & Girls' }]
+      .concat(order.filter(g => present.has(g)).map(g => ({ val: g, text: GENDER_LABEL[g] })));
+    genderPills.innerHTML = dropdownHTML({ kind: 'gender', value: currentGender, ariaLabel: 'Filter by boy or girl', groups: [{ label: null, options: opts }] });
+  }
+
   const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
   function sortSize(a, b) {
     const na = parseFloat(a), nb = parseFloat(b);
@@ -296,7 +317,8 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
         const drop = opt.closest('.cdrop');
         const val = opt.dataset.val, kind = drop.dataset.kind;
         closeAllDropdowns();
-        if (kind === 'cat') { currentCat = val; currentSize = 'all'; }
+        if (kind === 'gender') { currentGender = val; }
+        else if (kind === 'cat') { currentCat = val; currentSize = 'all'; }
         else if (kind === 'size') { currentSize = val; }
         currentPage = 1;
         render();
@@ -337,6 +359,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   const IG_SVG = `<svg class="ig-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`;
 
   function render() {
+    buildGenderPills();
     buildCatPills();
     buildSizePills();
 
@@ -355,7 +378,8 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
         : currentAvail === 'sale' ? isOnSale(item)
         : !soldOut;
       const catOk = currentCat === 'all' || item.category === currentCat;
-      return availOk && catOk && sizeMatch(item) && searchMatch(item);
+      const genderOk = currentGender === 'all' || itemGender(item) === currentGender;
+      return availOk && genderOk && catOk && sizeMatch(item) && searchMatch(item);
     });
 
     // Sort

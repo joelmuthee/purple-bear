@@ -453,8 +453,10 @@ is_product=false ONLY for: shop intros, marketing banners, owner photos, restock
 
 Caption: """${trimmed}"""
 
+4. Who is it for? (gender) "boy", "girl", or "unisex". Pink, bows, glitter, pearls, lilac, floral, ballet/doll/mary-jane styles, Frozen/princess themes = girl. Marvel/Spider-Man/cars, rugged navy or blue sport sandals, dark boyish colours = boy. Plain white/cream/grey/black trainers that either could wear = unisex. Dress Shoes are always girl.
+
 Reply with strict minified JSON, no prose, no code fences:
-{"is_product":true|false,"name":"<brand+style or New Pair>","category":"<exactly one from the list>","reason":"<3-6 words>"}`;
+{"is_product":true|false,"name":"<brand+style or New Pair>","category":"<exactly one from the list>","gender":"boy|girl|unisex","reason":"<3-6 words>"}`;
     const result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
       prompt,
       image: Array.from(imgBytes),
@@ -501,7 +503,7 @@ async function classifyPostWithAi(env, caption) {
 Reply with strict minified JSON only, no prose, no code fences.
 
 Schema:
-{"is_product": true|false, "name": "<short brand + style OR generic descriptor>", "category": "<exactly one of: Sneakers, Sandals, School Shoes, Dress Shoes, Boots, Crocs, Slides, Loafers>", "reason": "<3-6 words>"}
+{"is_product": true|false, "name": "<short brand + style OR generic descriptor>", "category": "<exactly one of: Sneakers, Sandals, School Shoes, Dress Shoes, Boots, Crocs, Slides, Loafers>", "gender": "boy|girl|unisex", "reason": "<3-6 words>"}
 
 This shop ONLY sells kids' shoes — never output a clothing/bag category. Sandals and Slides ARE valid (kids' footwear).
 
@@ -559,6 +561,23 @@ function coerceCategory(c) {
   // Generic "shoes" → Sneakers (the most common kids item); else null so owner picks.
   if (/^shoes?$/i.test(lower)) return "Sneakers";
   return null;
+}
+
+// Normalise an AI/admin gender value to 'boy' | 'girl' | null (null = unknown).
+function coerceGender(g) {
+  const v = String(g || "").trim().toLowerCase();
+  if (v === "boy" || v === "boys") return "boy";
+  if (v === "girl" || v === "girls") return "girl";
+  return null;
+}
+// Last-resort gender guess from caption/name keywords + category. Returns
+// 'boy' | 'girl' | 'unisex'. Dress Shoes are girls' party shoes by definition.
+function guessGenderFromText(text, category) {
+  const t = String(text || "").toLowerCase();
+  if (category === "Dress Shoes") return "girl";
+  if (/\b(girl|girls|girlie|girlies|princess|doll|ballet|mary\s*jane|sparkle|glitter|floral|bow|pearl)\b/.test(t)) return "girl";
+  if (/\b(boy|boys|marvel|spider\s*man|spiderman|avengers|cars?)\b/.test(t)) return "boy";
+  return "unisex";
 }
 
 // ---- Daily closing report (WhatsApp via WaSender) ----
@@ -721,6 +740,11 @@ async function runIgAutoSync(env) {
     }
     if (!category) category = "Sneakers";
 
+    // Gender: prefer vision, then text classifier, then caption keywords.
+    let gender = coerceGender(visionOk && vision.is_product ? vision.gender : null)
+      || coerceGender(text?.is_product ? text.gender : null)
+      || guessGenderFromText(`${name} ${it.caption || ""}`, category);
+
     // Cover image only on auto-sync; the owner can add carousel extras from
     // the admin's edit form whenever they want.
     try {
@@ -736,6 +760,7 @@ async function runIgAutoSync(env) {
         id: `ig_${it.shortcode}`,
         name: (name || "New Item").slice(0, 80),
         category,
+        gender,
         description: sug.description,
         price: sug.price || 0, // parsed from caption; 0 (blank) only when no price posted
         stock,
@@ -1295,6 +1320,10 @@ export default {
           }
           if (!category) category = "Sneakers"; // safest default for kids shoes if all signals failed
 
+          const gender = coerceGender(visionOk && vision.is_product ? vision.gender : null)
+            || coerceGender(text?.is_product ? text.gender : null)
+            || guessGenderFromText(`${name} ${it.caption || ""}`, category);
+
           const reason = visionOk ? vision.reason : (text?.reason || (heuristic ? "matched product heuristic" : ""));
           let classifier = "heuristic";
           if (visionOk && text) classifier = "vision+text";
@@ -1306,6 +1335,7 @@ export default {
             suggested: {
               name,
               category,
+              gender,
               stock: heuristicSuggestion.stock,
               price: heuristicSuggestion.price,
               description: heuristicSuggestion.description,
@@ -1391,11 +1421,13 @@ export default {
         if (!Object.keys(stock).length) stock["One Size"] = 1;
 
         const category = coerceCategory(it.category) || "Sneakers";
+        const gender = ["boy", "girl"].includes(String(it.gender || "").toLowerCase()) ? it.gender.toLowerCase() : "unisex";
 
         const bag = {
           id,
           name: (it.name || "New Item").slice(0, 80),
           category,
+          gender,
           description: it.description || "Quality kids' shoes, hand-picked. Photographed exactly as it is. Pick a size below to enquire.",
           price: Number(it.price) > 0 ? Number(it.price) : 0, // owner-confirmed or caption-parsed
           stock,
