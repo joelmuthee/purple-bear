@@ -559,7 +559,7 @@ function generateDescription(name, cat) {
 
   const catMap = {
     Sneakers: 'pair of sneakers', Sandals: 'pair of sandals', 'School Shoes': 'pair of school shoes',
-    Boots: 'pair of boots', Crocs: 'pair of crocs', Slides: 'pair of slides', Loafers: 'pair of loafers',
+    'Dress Shoes': 'pair of dress shoes', Boots: 'pair of boots', Crocs: 'pair of crocs', Slides: 'pair of slides', Loafers: 'pair of loafers',
   };
   const type = catMap[cat] || 'pair';
 
@@ -2861,7 +2861,7 @@ adminItemSearchInput?.addEventListener('input', () => {
 // subset. Dedupe is server-side by `ig_<shortcode>` so the button is
 // idempotent and never re-adds an item already in the catalog.
 const IG_USER_ID = '42076928572'; // @purple_bearke (Purple Bear Kids Store)
-const MENSWEAR_CATEGORIES = ['Sneakers', 'Sandals', 'School Shoes', 'Boots', 'Crocs', 'Slides', 'Loafers'];
+const MENSWEAR_CATEGORIES = ['Sneakers', 'Sandals', 'School Shoes', 'Dress Shoes', 'Boots', 'Crocs', 'Slides', 'Loafers'];
 
 let igSyncCandidates = [];
 
