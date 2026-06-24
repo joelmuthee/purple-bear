@@ -20,7 +20,11 @@ binding = "AI"
 #   "10 16 * * *" → 19:10 EAT: IG auto-sync, evening wave
 #   "0 17 * * *"  → 20:00 EAT: daily WhatsApp report (no-ops unless owner enabled it)
 [triggers]
-crons = ["10 6 * * *", "10 10 * * *", "10 16 * * *", "0 17 * * *"]
+# IG auto-sync DISABLED at owner request (manual upload only) — the three IG
+# waves (10 6, 10 10, 10 16) were removed. Only the daily WhatsApp report cron
+# remains. To re-enable IG: restore those three crons and set
+# IG_AUTOSYNC_USER_ID back to the account id.
+crons = ["0 17 * * *"]
 
 # Secrets — never committed:
 #   npx wrangler secret put ADMIN_TOKEN
