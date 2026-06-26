@@ -435,13 +435,13 @@ async function classifyPostWithVision(env, caption, imageUrl) {
 1. Is this a single product (one specific pair or stocked style) for sale? (is_product true|false)
 2. What brand / style is it? (name — short, e.g. "Nike Air Force", "Bata School Shoes", or "New Pair" if unknown)
 3. What category? Pick EXACTLY one from this list — never invent another:
-   Sneakers, Sandals, School Shoes, Dress Shoes, Boots, Crocs, Slides, Loafers
+   Sneakers, Sandals, School Shoes, Doll Shoes, Boots, Crocs, Slides, Loafers
 
 Category guide (look carefully — this is the hardest call):
 - Sneakers: casual athletic / lifestyle shoes — trainers, canvas, Air Force, Jordan, Adidas, Puma, light-up shoes, rubber shoes. Also infant / first-walker / soft-bootie shoes.
 - Sandals: open shoes with straps, gladiators, summer sandals, sport sandals.
 - School Shoes: plain black/brown formal closed school shoes (Bata, Toughees, Clarks), plain all-black sports school shoes.
-- Dress Shoes: girls' party / doll shoes — mary-janes, ballet flats, patent flats, shoes with bows, glitter or pearl straps. The dressy closed shoe a girl wears to a party.
+- Doll Shoes: girls' party / doll shoes — mary-janes, ballet flats, patent flats, shoes with bows, glitter or pearl straps. The dressy closed shoe a girl wears to a party.
 - Boots: ankle-high or taller — chelsea boots, winter boots, Timberland-style.
 - Crocs: rubber clogs with holes (Crocs and lookalikes).
 - Slides: backless slip-on slides, slippers, flip-flops, pool sliders.
@@ -453,7 +453,7 @@ is_product=false ONLY for: shop intros, marketing banners, owner photos, restock
 
 Caption: """${trimmed}"""
 
-4. Who is it for? (gender) "boy", "girl", or "unisex". Pink, bows, glitter, pearls, lilac, floral, ballet/doll/mary-jane styles, Frozen/princess themes = girl. Marvel/Spider-Man/cars, rugged navy or blue sport sandals, dark boyish colours = boy. Plain white/cream/grey/black trainers that either could wear = unisex. Dress Shoes are always girl.
+4. Who is it for? (gender) "boy", "girl", or "unisex". Pink, bows, glitter, pearls, lilac, floral, ballet/doll/mary-jane styles, Frozen/princess themes = girl. Marvel/Spider-Man/cars, rugged navy or blue sport sandals, dark boyish colours = boy. Plain white/cream/grey/black trainers that either could wear = unisex. Doll Shoes are always girl.
 
 Reply with strict minified JSON, no prose, no code fences:
 {"is_product":true|false,"name":"<brand+style or New Pair>","category":"<exactly one from the list>","gender":"boy|girl|unisex","reason":"<3-6 words>"}`;
@@ -503,7 +503,7 @@ async function classifyPostWithAi(env, caption) {
 Reply with strict minified JSON only, no prose, no code fences.
 
 Schema:
-{"is_product": true|false, "name": "<short brand + style OR generic descriptor>", "category": "<exactly one of: Sneakers, Sandals, School Shoes, Dress Shoes, Boots, Crocs, Slides, Loafers>", "gender": "boy|girl|unisex", "reason": "<3-6 words>"}
+{"is_product": true|false, "name": "<short brand + style OR generic descriptor>", "category": "<exactly one of: Sneakers, Sandals, School Shoes, Doll Shoes, Boots, Crocs, Slides, Loafers>", "gender": "boy|girl|unisex", "reason": "<3-6 words>"}
 
 This shop ONLY sells kids' shoes — never output a clothing/bag category. Sandals and Slides ARE valid (kids' footwear).
 
@@ -512,7 +512,7 @@ Rules:
 - is_product = false for shop intros, owner photos, marketing banners, holiday greetings, generic "DM us" announcements with no specific product.
 - Decode shorthand/brands: "AF1" → Nike Air Force; "Bata"/"Toughees" → School Shoes; "NB" → New Balance.
 - name MUST be brand+style when known. Strip prices, sizes, phone numbers, hashtags. If brand unknown but type clear, name = generic descriptor (e.g. "Light-up Sneakers", "Velcro School Shoes"). If truly unknown, name = "New Pair".
-- category: match to the EXACT list. Plain black/brown formal closed school shoes → School Shoes. Girls' party flats, mary-janes, ballet flats, shoes with bows/glitter/pearls → Dress Shoes. Boys' slip-on moccasins/driving shoes (no bow) → Loafers. Rubber clogs with holes → Crocs. Backless slip-on slides/slippers → Slides. Infant/first-walker → Sneakers. Generic "shoes" with no clear type → Sneakers.
+- category: match to the EXACT list. Plain black/brown formal closed school shoes → School Shoes. Girls' party flats, mary-janes, ballet flats, shoes with bows/glitter/pearls → Doll Shoes. Boys' slip-on moccasins/driving shoes (no bow) → Loafers. Rubber clogs with holes → Crocs. Backless slip-on slides/slippers → Slides. Infant/first-walker → Sneakers. Generic "shoes" with no clear type → Sneakers.
 
 Caption: """${trimmed}"""`;
   try {
@@ -540,7 +540,7 @@ Caption: """${trimmed}"""`;
 // Ryker stocks men's clothing + footwear only. Coerce any AI-suggested category
 // that's outside the allowed list to either the closest legal option or null.
 const SHOE_CATEGORIES = new Set([
-  "Sneakers","Sandals","School Shoes","Dress Shoes","Boots","Crocs","Slides","Loafers",
+  "Sneakers","Sandals","School Shoes","Doll Shoes","Boots","Crocs","Slides","Loafers",
 ]);
 function coerceCategory(c) {
   if (!c) return null;
@@ -555,7 +555,7 @@ function coerceCategory(c) {
   if (/^boots?$/i.test(lower)) return "Boots";
   if (/^(crocs?|clogs?)$/i.test(lower)) return "Crocs";
   if (/^(slides?|slippers?|flip[\s\-]?flops?)$/i.test(lower)) return "Slides";
-  if (/^(mary\s*janes?|doll\s*shoes?|ballet(?:\s*flats?)?|flats?|party\s*shoes?|dress\s*shoes?)$/i.test(lower)) return "Dress Shoes";
+  if (/^(mary\s*janes?|doll\s*shoes?|ballet(?:\s*flats?)?|flats?|party\s*shoes?|dress\s*shoes?)$/i.test(lower)) return "Doll Shoes";
   if (/^(loafers?|moccasins?|formal)$/i.test(lower)) return "Loafers";
   if (/^(baby\s*shoes?|first\s*walkers?|pre[\s\-]?walkers?|booties?|bootie|crib\s*shoes?|infant|newborn)$/i.test(lower)) return "Sneakers";
   // Generic "shoes" → Sneakers (the most common kids item); else null so owner picks.
@@ -571,10 +571,10 @@ function coerceGender(g) {
   return null;
 }
 // Last-resort gender guess from caption/name keywords + category. Returns
-// 'boy' | 'girl' | 'unisex'. Dress Shoes are girls' party shoes by definition.
+// 'boy' | 'girl' | 'unisex'. Doll Shoes are girls' party shoes by definition.
 function guessGenderFromText(text, category) {
   const t = String(text || "").toLowerCase();
-  if (category === "Dress Shoes") return "girl";
+  if (category === "Doll Shoes") return "girl";
   if (/\b(girl|girls|girlie|girlies|princess|doll|ballet|mary\s*jane|sparkle|glitter|floral|bow|pearl)\b/.test(t)) return "girl";
   if (/\b(boy|boys|marvel|spider\s*man|spiderman|avengers|cars?)\b/.test(t)) return "boy";
   return "unisex";
