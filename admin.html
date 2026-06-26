@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#5b2a86">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260624noig">
+<link rel="stylesheet" href="styles.css?v=20260624cstk">
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LeDBFwpAAAAAJe8ux9-imrqZ2ueRsEtdiWoDDpX" async defer></script>
 </head>
 <body style="background:var(--bg);">
@@ -70,6 +70,7 @@
 
       <div id="posSaleFields" style="display:none;">
         <div class="pos-row">
+          <div class="field" id="posColorField" style="display:none;"><label>Colour</label><select id="posColor"></select></div>
           <div class="field"><label>Size</label><select id="posSize"></select></div>
           <div class="field pos-qty"><label>Qty</label><input id="posQty" type="number" min="1" value="1"></div>
           <div class="field"><label>Selling price (Ksh) <small style="font-weight:400;color:#999;">pre-filled from the catalog — edit if the customer bargained</small></label><input id="posPrice" type="number" min="0"></div>
@@ -426,8 +427,8 @@
       <input id="costInput" type="number" min="0" step="50" placeholder="e.g. 2000">
     </div>
 
-    <!-- STOCK ENTRY -->
-    <div class="field">
+    <!-- STOCK ENTRY (flat — for single-colour items; hidden when the item has colours) -->
+    <div class="field" id="flatStockSection">
       <label>Stock <small style="font-weight:400;color:#999;">— open a size chart below and enter quantity per EU size. Use "One size" only for a pair with no sizing.</small></label>
 
       <div class="stock-entry-group">
@@ -485,6 +486,18 @@
       </details>
     </div>
 
+    <!-- STOCK PER COLOUR & SIZE — shown only when the item has colours. -->
+    <div class="field" id="colorStockPanel" style="display:none;">
+      <label>Stock per colour &amp; size <small style="font-weight:400;color:#999;">— this item has colours, so set how many of each size you have in each colour. Selling deducts the exact colour and size.</small></label>
+      <div class="cstk-sizes">
+        <span class="cstk-sizes-lbl">Sizes it comes in:</span>
+        <input id="cstkSizesInput" type="text" placeholder="e.g. 22, 23, 24, 25" autocomplete="off">
+        <button class="btn-admin" id="cstkBuildBtn" type="button">Build grid</button>
+      </div>
+      <p class="stock-hint">Type the sizes (comma-separated), tap <strong>Build grid</strong>, then fill the quantity for each colour and size. Leave blank or 0 for ones you don't have.</p>
+      <div id="cstkGrid" class="cstk-grid-wrap"></div>
+    </div>
+
     <div class="admin-actions">
       <button class="btn-admin primary" id="saveBtn">Save item</button>
       <button class="btn-admin" id="cancelBtn" style="display:none;">Cancel edit</button>
@@ -532,6 +545,10 @@
     <h3 id="saleModalTitle">Record a sale</h3>
     <p class="sub">Reduce stock and optionally save buyer details for remarketing.</p>
 
+    <div class="field" id="saleColorField" style="display:none;">
+      <label>Colour</label>
+      <select id="saleColorInput"></select>
+    </div>
     <div class="field">
       <label>Size sold</label>
       <select id="saleSizeInput"></select>
@@ -844,6 +861,6 @@
   </div>
 </div>
 
-<script src="admin.js?v=20260624discount"></script>
+<script src="admin.js?v=20260624cstk"></script>
 </body>
 </html>
