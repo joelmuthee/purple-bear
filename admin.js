@@ -997,28 +997,27 @@ function openSaleModal(id) {
   saleSizeInput.innerHTML = '';
   const colorField = document.getElementById('saleColorField');
   const colorSel = document.getElementById('saleColorInput');
-  if (itemHasColorStock(bag)) {
-    // Colour item: pick colour first, then sizes for that colour.
-    const cols = colorsWithStock(bag);
-    if (!cols.length) { showToast('All colours are out of stock.'); return; }
-    colorSel.innerHTML = cols.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  const cols = itemColors(bag);
+  const stocked = itemHasColorStock(bag);
+  const fillFlat = () => {
+    saleSizeInput.innerHTML = '';
+    const entries = Object.entries(bag.stock || {}).filter(([, q]) => q > 0);
+    if (entries.length) entries.forEach(([sz, q]) => {
+      const o = document.createElement('option'); o.value = sz; o.textContent = `${sz} (${q} in stock)`; saleSizeInput.appendChild(o);
+    });
+    else { const o = document.createElement('option'); o.value = 'One size'; o.textContent = 'One size'; saleSizeInput.appendChild(o); }
+  };
+  if (cols.length) {
+    // Any colour item shows the colour picker. Per-colour stock filters sizes +
+    // deducts that colour; colour-LABEL-only items just record which colour sold.
+    const colOptions = stocked ? colorsWithStock(bag) : cols;
+    if (stocked && !colOptions.length) { showToast('All colours are out of stock.'); return; }
+    colorSel.innerHTML = colOptions.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     if (colorField) colorField.style.display = '';
-    fillSaleSizesForColor(bag, cols[0]);
+    if (stocked) fillSaleSizesForColor(bag, colOptions[0]); else fillFlat();
   } else {
     if (colorField) colorField.style.display = 'none';
-    const stock = bag.stock || {};
-    const hasSizes = Object.keys(stock).length > 0;
-    if (hasSizes) {
-      Object.entries(stock).filter(([, q]) => q > 0).forEach(([sz, q]) => {
-        const opt = document.createElement('option');
-        opt.value = sz;
-        opt.textContent = `${sz} (${q} in stock)`;
-        saleSizeInput.appendChild(opt);
-      });
-      if (!saleSizeInput.options.length) { showToast('All sizes are out of stock.'); return; }
-    } else {
-      const opt = document.createElement('option'); opt.value = 'One size'; opt.textContent = 'One size'; saleSizeInput.appendChild(opt);
-    }
+    fillFlat();
   }
   saleQtyInput.value = 1;
   // Default to the markdown price if the item is on sale, so the recorded sale captures the discount.
@@ -1045,7 +1044,7 @@ async function recordSale(withBuyer) {
   const curBag = bags.find(b => b.id === targetId);
   if (!curBag) return;
   const size = saleSizeInput.value;
-  const color = itemHasColorStock(curBag) ? (document.getElementById('saleColorInput').value || '') : '';
+  const color = itemColors(curBag).length ? (document.getElementById('saleColorInput').value || '') : '';
   const qty = parseInt(saleQtyInput.value, 10) || 1;
   const salePrice = parseInt(salePriceInput.value, 10) || curBag.price; // already the discounted (net) price
   const discount = Math.max(0, parseInt(document.getElementById('saleDiscountInput').value, 10) || 0);
@@ -3270,18 +3269,22 @@ function posSelectItem(id) {
   sizeSel.innerHTML = '';
   const posColorField = document.getElementById('posColorField');
   const posColorSel = document.getElementById('posColor');
-  if (itemHasColorStock(bag)) {
-    const cols = colorsWithStock(bag);
-    if (cols.length) {
-      posColorSel.innerHTML = cols.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-      if (posColorField) posColorField.style.display = '';
-      fillPosSizesForColor(bag, cols[0]);
-    }
-  } else {
-    if (posColorField) posColorField.style.display = 'none';
+  const posCols = itemColors(bag);
+  const posStocked = itemHasColorStock(bag);
+  const fillPosFlat = () => {
+    sizeSel.innerHTML = '';
     const inStock = Object.entries(bag.stock || {}).filter(([, q]) => q > 0);
     if (inStock.length) inStock.forEach(([sz, q]) => { const o = document.createElement('option'); o.value = sz; o.textContent = `${sz} (${q} in stock)`; sizeSel.appendChild(o); });
     else { const o = document.createElement('option'); o.value = 'One size'; o.textContent = 'One size'; sizeSel.appendChild(o); }
+  };
+  if (posCols.length) {
+    const colOptions = posStocked ? colorsWithStock(bag) : posCols;
+    posColorSel.innerHTML = colOptions.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (posColorField) posColorField.style.display = '';
+    if (posStocked && colOptions.length) fillPosSizesForColor(bag, colOptions[0]); else fillPosFlat();
+  } else {
+    if (posColorField) posColorField.style.display = 'none';
+    fillPosFlat();
   }
   document.getElementById('posQty').value = 1;
   const posPriceEl = document.getElementById('posPrice');
@@ -3390,7 +3393,7 @@ async function recordPosSale() {
   if (!bags.find(b => b.id === targetId)) { showToast('Item not found — refresh.'); return; }
   const size = document.getElementById('posSize').value;
   const posCurBag = bags.find(b => b.id === targetId);
-  const color = itemHasColorStock(posCurBag) ? (document.getElementById('posColor').value || '') : '';
+  const color = itemColors(posCurBag).length ? (document.getElementById('posColor').value || '') : '';
   const qty = parseInt(document.getElementById('posQty').value, 10) || 1;
   const priceRaw = parseInt(document.getElementById('posPrice').value, 10);
   const name = document.getElementById('posBuyerName').value.trim();
