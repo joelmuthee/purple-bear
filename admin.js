@@ -562,6 +562,37 @@ function fillPosSizesForColor(bag, color) {
     sizeSel.appendChild(o);
   });
 }
+// Ensure bag.stockByColor exists for a colour item — seed it from the existing
+// flat stock under the FIRST colour so a legacy colour-LABEL item migrates without
+// losing stock. Call inside a mutator before writing per-colour stock.
+function ensureStockByColor(bag) {
+  if (bag.stockByColor && Object.keys(bag.stockByColor).length) return;
+  const flat = {};
+  Object.entries(bag.stock || {}).forEach(([s, q]) => { if (q > 0 && s !== 'One Size') flat[s] = q; });
+  const first = (bag.colors || [])[0];
+  bag.stockByColor = (first && Object.keys(flat).length) ? { [first]: flat } : {};
+}
+// Current units for a colour+size in the restock modal — mirrors the seed above
+// (flat stock counts as the first colour) WITHOUT mutating the bag.
+function restockCurrent(bag, color, size) {
+  if (bag.stockByColor && Object.keys(bag.stockByColor).length) {
+    return (bag.stockByColor[color] && bag.stockByColor[color][size]) || 0;
+  }
+  const first = (bag.colors || [])[0];
+  if (color === first && size !== 'One Size') return bag.stock?.[size] || 0;
+  return 0;
+}
+const RESTOCK_ALL_SIZES = ['XS','S','M','L','XL','XXL','3XL','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35','36','37','38','39','40','UK6','UK7','UK8','UK9','UK10','UK11','UK12'];
+// Fill the restock size dropdown showing the current count for the chosen colour.
+function fillRestockSizes(bag, color) {
+  const sizeSel = document.getElementById('restockSizeInput');
+  sizeSel.innerHTML = '';
+  RESTOCK_ALL_SIZES.forEach(sz => {
+    const cur = color ? restockCurrent(bag, color, sz) : (bag.stock?.[sz] || 0);
+    const opt = document.createElement('option'); opt.value = sz; opt.textContent = `${sz} (currently ${cur})`;
+    sizeSel.appendChild(opt);
+  });
+}
 function buildColorStockGrid(existing) {
   const grid = document.getElementById('cstkGrid');
   if (!grid) return;
@@ -1215,23 +1246,33 @@ function openRestockModal(id) {
   if (!bag) return;
   pendingRestockId = id;
   document.getElementById('restockModalTitle').textContent = `Restock: ${bag.name}`;
-  restockSizeInput.innerHTML = '';
-  const ALL_SIZES = ['XS','S','M','L','XL','XXL','3XL','28','30','32','34','36','38','40','UK6','UK7','UK8','UK9','UK10','UK11','UK12'];
-  ALL_SIZES.forEach(sz => {
-    const opt = document.createElement('option'); opt.value = sz;
-    const cur = bag.stock?.[sz] || 0;
-    opt.textContent = `${sz} (currently ${cur})`;
-    restockSizeInput.appendChild(opt);
-  });
+  const colorField = document.getElementById('restockColorField');
+  const colorSel = document.getElementById('restockColorInput');
+  const cols = itemColors(bag);
+  if (cols.length) {
+    // Colour item — restock into a specific colour (all colours, incl. sold-out, are restockable).
+    colorSel.innerHTML = cols.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (colorField) colorField.style.display = '';
+    fillRestockSizes(bag, cols[0]);
+  } else {
+    if (colorField) colorField.style.display = 'none';
+    fillRestockSizes(bag, '');
+  }
   restockQtyInput.value = 5;
   restockModal.style.display = 'flex';
 }
+document.getElementById('restockColorInput')?.addEventListener('change', () => {
+  const bag = bags.find(b => b.id === pendingRestockId);
+  if (bag) fillRestockSizes(bag, document.getElementById('restockColorInput').value);
+});
 
 function closeRestockModal() { restockModal.style.display = 'none'; pendingRestockId = null; }
 
 document.getElementById('restockSaveBtn').addEventListener('click', async () => {
   const targetId = pendingRestockId;
+  const curBag = bags.find(b => b.id === targetId);
   const size = restockSizeInput.value;
+  const color = curBag && itemColors(curBag).length ? (document.getElementById('restockColorInput').value || '') : '';
   const qty = parseInt(restockQtyInput.value, 10) || 0;
   if (qty <= 0) { showToast('Enter a quantity to add.'); return; }
   closeRestockModal();
@@ -1239,12 +1280,20 @@ document.getElementById('restockSaveBtn').addEventListener('click', async () => 
     await apiMutateAndPublish(() => {
       const bag = bags.find(b => b.id === targetId);
       if (!bag) throw new Error('Item no longer exists — refresh admin');
-      if (!bag.stock) bag.stock = {};
-      bag.stock[size] = (bag.stock[size] || 0) + qty;
+      if (color && itemColors(bag).length) {
+        // Colour item: add to that colour's size, seeding stockByColor if needed, then re-sum.
+        ensureStockByColor(bag);
+        bag.stockByColor[color] = bag.stockByColor[color] || {};
+        bag.stockByColor[color][size] = (bag.stockByColor[color][size] || 0) + qty;
+        bag.stock = aggregateStock(bag.stockByColor);
+      } else {
+        if (!bag.stock) bag.stock = {};
+        bag.stock[size] = (bag.stock[size] || 0) + qty;
+      }
     });
     renderList();
     renderInventory();
-    showToast(`+${qty} ${size} added to stock.`);
+    showToast(`+${qty} ${size}${color ? ' ' + color : ''} added to stock.`);
   } catch (err) { showToast('Error: ' + err.message); }
 });
 
@@ -1902,6 +1951,13 @@ function bsInStockSizes(b) {
   return keys.filter(k => Number(stock[k]) > 0);
 }
 function bulkSellableSelected() { return bags.filter(b => bulkSelected.has(b.id) && bsInStockSizes(b).length > 0); }
+// Size control for a bulk-sell row. Colour-stock items show sizes for the chosen colour.
+function bsSizeControl(b, color) {
+  const sizes = (color && itemHasColorStock(b)) ? colorAvailSizes(b, color) : bsInStockSizes(b);
+  return sizes.length > 1
+    ? `<select class="bsr-size" data-id="${b.id}">${sizes.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}</select>`
+    : `<span class="bsr-onesize" data-id="${b.id}" data-size="${escapeHtml(sizes[0] || 'One size')}">${escapeHtml(sizes[0] || 'One size')}</span>`;
+}
 let bulkSellTotalAmt = 0;
 window.bulkSell = () => {
   const list = bulkSellableSelected();
@@ -1909,11 +1965,14 @@ window.bulkSell = () => {
   bulkSellTotalAmt = list.reduce((s, b) => s + bsEffPrice(b), 0);
   document.getElementById('bulkSellTitle').textContent = `Sell ${list.length} item${list.length === 1 ? '' : 's'} to one customer`;
   document.getElementById('bulkSellRows').innerHTML = list.map(b => {
-    const sizes = bsInStockSizes(b);
-    const ctl = sizes.length > 1
-      ? `<select class="bsr-size" data-id="${b.id}">${sizes.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}</select>`
-      : `<span class="bsr-onesize" data-id="${b.id}" data-size="${escapeHtml(sizes[0])}">${escapeHtml(sizes[0])}</span>`;
-    return `<div class="bulksell-row"><span class="bulksell-row-name">${escapeHtml(b.name)} · ${fmtKsh(bsEffPrice(b))}</span>${ctl}</div>`;
+    const cols = itemColors(b);
+    let colorCtl = '', firstColor = '';
+    if (cols.length) {
+      const colOptions = itemHasColorStock(b) ? colorsWithStock(b) : cols;
+      firstColor = colOptions[0] || '';
+      colorCtl = `<select class="bsr-color" data-id="${b.id}">${colOptions.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select>`;
+    }
+    return `<div class="bulksell-row"><span class="bulksell-row-name">${escapeHtml(b.name)} · ${fmtKsh(bsEffPrice(b))}</span>${colorCtl}${bsSizeControl(b, firstColor)}</div>`;
   }).join('');
   document.getElementById('bulkSellTotal').textContent = `Total: ${fmtKsh(bulkSellTotalAmt)} · ${list.length} item${list.length === 1 ? '' : 's'}`;
   ['bulkSellName', 'bulkSellPhone', 'bulkSellNotes', 'bulkSellPaid', 'bulkSellCustSearch'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -1925,6 +1984,16 @@ window.bulkSell = () => {
   document.getElementById('bulkSellModal').style.display = 'flex';
 };
 function closeBulkSell() { document.getElementById('bulkSellModal').style.display = 'none'; }
+// Bulk-sell row colour change → rebuild that row's size control for the chosen colour.
+document.getElementById('bulkSellRows')?.addEventListener('change', e => {
+  const cs = e.target.closest('.bsr-color');
+  if (!cs) return;
+  const b = bags.find(x => x.id === cs.dataset.id);
+  const row = cs.closest('.bulksell-row');
+  if (!b || !row) return;
+  row.querySelector('.bsr-size, .bsr-onesize')?.remove();
+  row.insertAdjacentHTML('beforeend', bsSizeControl(b, cs.value));
+});
 function updateBulkSellHint() {
   const raw = (document.getElementById('bulkSellPaid').value || '').trim();
   document.getElementById('bulkSellPaidNone').classList.toggle('active', raw === '0');
@@ -1941,7 +2010,8 @@ async function commitBulkSold(withBuyer) {
   const chosen = initial.map(b => {
     const sel = document.querySelector(`.bsr-size[data-id="${b.id}"]`);
     const one = document.querySelector(`.bsr-onesize[data-id="${b.id}"]`);
-    return { id: b.id, size: sel ? sel.value : (one ? one.dataset.size : 'One size'), price: bsEffPrice(b) };
+    const colorSel = document.querySelector(`.bsr-color[data-id="${b.id}"]`);
+    return { id: b.id, size: sel ? sel.value : (one ? one.dataset.size : 'One size'), color: colorSel ? colorSel.value : '', price: bsEffPrice(b) };
   });
   const payMethod = document.querySelector('#bulkSellPay .pos-pay-btn.active')?.dataset.pay || 'mpesa';
   const buyer = { name: '', phone: '', notes: '' };
@@ -1963,19 +2033,28 @@ async function commitBulkSold(withBuyer) {
       for (const ch of chosen) {
         const bag = bags.find(b => b.id === ch.id);
         if (!bag) continue;
+        const perColour = ch.color && itemHasColorStock(bag);
         const stock = bag.stock || {};
         const hasStockObj = Object.keys(stock).length > 0;
-        if (hasStockObj && !(Number(stock[ch.size]) > 0)) continue; // size sold out since the modal opened
+        // Skip if the chosen colour+size (or size) sold out since the modal opened.
+        if (perColour) {
+          if (!(Number(bag.stockByColor[ch.color]?.[ch.size]) > 0)) continue;
+        } else if (hasStockObj && !(Number(stock[ch.size]) > 0)) continue;
         const total = ch.price; // qty 1
         const amountPaid = hasPartial ? Math.min(remaining, total) : total;
         if (hasPartial) remaining = Math.max(0, remaining - amountPaid);
         const sale = {
-          size: ch.size, qty: 1, salePrice: ch.price, amountPaid,
+          size: ch.size, ...(ch.color ? { color: ch.color } : {}), qty: 1, salePrice: ch.price, amountPaid,
           paymentMethod: payMethod, channel: 'shop',
           buyerName: withBuyer ? buyer.name : '', buyerPhone: withBuyer ? buyer.phone : '',
           notes: withBuyer ? buyer.notes : '', soldAt,
         };
-        if (hasStockObj && stock[ch.size] !== undefined) stock[ch.size] = Math.max(0, Number(stock[ch.size]) - 1);
+        if (perColour) {
+          bag.stockByColor[ch.color][ch.size] = Math.max(0, Number(bag.stockByColor[ch.color][ch.size]) - 1);
+          bag.stock = aggregateStock(bag.stockByColor);
+        } else if (hasStockObj && stock[ch.size] !== undefined) {
+          stock[ch.size] = Math.max(0, Number(stock[ch.size]) - 1);
+        }
         if (!bag.sales) bag.sales = [];
         bag.sales.push(sale);
         soldList.push({ bag, sale });
