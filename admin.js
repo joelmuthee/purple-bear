@@ -527,6 +527,10 @@ function aggregateStock(sbc) {
     Object.entries(sizes).forEach(([s, q]) => { agg[s] = (agg[s] || 0) + (Number(q) || 0); }));
   return agg;
 }
+// Colours on an item (trimmed labels). Source of the sale-modal colour picker.
+function itemColors(bag) {
+  return Array.isArray(bag.colors) ? bag.colors.map(c => String(c).trim()).filter(Boolean) : [];
+}
 // Does this item track stock per colour+size?
 function itemHasColorStock(bag) {
   return Array.isArray(bag.colors) && bag.colors.length > 0 && bag.stockByColor && typeof bag.stockByColor === 'object';
