@@ -813,6 +813,8 @@ export default {
       // Billing kill-switch: stored in its own KV key so the owner's admin
       // publishes (which only write "data") can never clear it.
       data.suspended = (await env.BAGS.get("suspended")) === "1";
+      // "client" (paid lapse) -> neutral offline page; "prospect" (default) -> win-back pitch.
+      data.suspend_mode = (await env.BAGS.get("suspend_mode")) || "prospect";
       // PRIVACY: strip buyer PII (sales[].buyerName/buyerPhone/notes, soldTo) for
       // unauthed callers. The storefront only reads sold/price/salePrice/sales.length,
       // never buyer details. The admin sends a Bearer token and gets the full data.
@@ -845,6 +847,11 @@ export default {
       try { body = await request.json(); } catch { return json({ error: "invalid json" }, 400); }
       const suspended = !!body.suspended;
       await env.BAGS.put("suspended", suspended ? "1" : "0");
+      // Remember which overlay to show. Only set on an explicit pause (mode present),
+      // so a bare restore doesn't wipe it.
+      if (body.mode === "client" || body.mode === "prospect") {
+        await env.BAGS.put("suspend_mode", body.mode);
+      }
       return json({ ok: true, suspended });
     }
 

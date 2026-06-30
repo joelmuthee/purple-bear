@@ -15,6 +15,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   let items = [];
   let settings = {};
   let suspended = false;
+  let suspendMode = 'prospect';
   let currentAvail = 'all';
   let currentGender = 'all';
   let currentCat = 'all';
@@ -117,6 +118,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
       items = json.bags || [];
       settings = json.settings || {};
       suspended = !!json.suspended;
+      suspendMode = json.suspend_mode || 'prospect';
     } catch (e) {
       try {
         const res = await fetch('data.json');
@@ -918,7 +920,10 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   function showSuspended() {
     document.documentElement.style.overflow = 'hidden';
     const shopName = settings.shopName || 'Purple Bear';
-    document.title = shopName + ' · Paused';
+    // Paid CLIENT lapse -> neutral "find us on Instagram" page (don't pitch a buyout
+    // to a real client's customers). PROSPECT (default) -> one-off win-back pitch.
+    const isClient = suspendMode === 'client';
+    document.title = shopName + (isClient ? ' · Offline' : ' · Paused');
 
     const tagline = settings.tagline || "Kids' Shoes · Nairobi";
     const igHandle = (settings.instagramHandle || 'purple_bearke').replace(/^@/, '');
@@ -954,10 +959,18 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
       + '<div class="rk-name">' + shopName + '</div>'
       + (tagline ? '<div class="rk-tag">' + tagline + '</div>' : '<div style="height:30px"></div>')
       + '<div class="rk-rule"></div>'
-      + '<h1 class="rk-head">This shop is paused</h1>'
-      + '<p class="rk-body">Not ready for a monthly plan? You don\'t need one.</p>'
-      + '<p class="rk-offer">Now you can <b>own this shop outright for a one-time Ksh 20,000</b>, no monthly fees. New stock you post on Instagram pulls straight into your shop. Buyers can filter by category and size to find what they want fast, then order on WhatsApp.</p>'
-      + '<a class="rk-ig" href="' + waLink + '" target="_blank" rel="noopener">' + WA_SVG + ' Bring my shop back</a>'
+      + (isClient
+        ? (
+          '<h1 class="rk-head">This shop is currently offline</h1>'
+          + '<p class="rk-body">' + (igHandle ? 'For orders or questions, find us on Instagram.' : 'Please check back later.') + '</p>'
+          + (igLink ? '<a class="rk-ig" href="' + igLink + '" target="_blank" rel="noopener">' + IG_SVG + ' Find us on Instagram</a>' : '')
+        )
+        : (
+          '<h1 class="rk-head">This shop is paused</h1>'
+          + '<p class="rk-body">Not ready for a monthly plan? You don\'t need one.</p>'
+          + '<p class="rk-offer">Now you can <b>own this shop outright for a one-time Ksh 20,000</b>, no monthly fees. New stock you post on Instagram pulls straight into your shop. Buyers can filter by category and size to find what they want fast, then order on WhatsApp.</p>'
+          + '<a class="rk-ig" href="' + waLink + '" target="_blank" rel="noopener">' + WA_SVG + ' Bring my shop back</a>'
+        ))
     );
     document.body.appendChild(o);
   }
