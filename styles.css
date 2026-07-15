@@ -967,6 +967,28 @@ html { scroll-behavior: smooth; }
 .cstk-table .cstk-qty:focus { outline: none; border-color: var(--gold); }
 .stock-entry-item input[type="number"] { width: 56px; text-align: center; padding: 7px 6px; font-size: 13px; }
 
+/* ===== Assistant role — sell + manage stock, but no money/report views =====
+   Applied by admin.js adding `role-assistant` to <body> after an assistant login.
+   Hides the reporting dashboards, their nav links, and the stray money figures
+   inside kept views (today's takings, inventory value, buying price, owner tools). */
+body.role-assistant #salesDash,
+body.role-assistant #insightsDash,
+body.role-assistant #expensesDash,
+body.role-assistant #reportDash,
+body.role-assistant #owedDash,
+body.role-assistant #broadcastDash,
+body.role-assistant .admin-nav a[href="#salesDash"],
+body.role-assistant .admin-nav a[href="#insightsDash"],
+body.role-assistant .admin-nav a[href="#expensesDash"],
+body.role-assistant .admin-nav a[href="#reportDash"],
+body.role-assistant .admin-nav a[href="#owedDash"],
+body.role-assistant .admin-nav a[href="#broadcastDash"],
+body.role-assistant #posTodaySplit,
+body.role-assistant #invKpiGrid .inv-kpi-money,
+body.role-assistant #costField,
+body.role-assistant #changePasswordBtn,
+body.role-assistant #staffAccessBtn { display: none !important; }
+
 /* ===== Collapsible admin sections (mobile-safe) =====
    Manual add-item form + each size chart + the WhatsApp Marketing section all
    collapse into native <details>. CRITICAL: a <summary> with display:flex breaks

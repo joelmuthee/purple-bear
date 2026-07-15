@@ -29,6 +29,10 @@ const loginError = document.getElementById('loginError');
 
 function checkAuth() {
   if (sessionStorage.getItem('purplebear_auth') === '1') {
+    // Role gate: an 'assistant' can sell + manage stock but the admin hides all
+    // money/report views (sales totals, profit, inventory value, owed, etc.).
+    const role = sessionStorage.getItem('purplebear_role') || 'owner';
+    document.body.classList.toggle('role-assistant', role === 'assistant');
     loginScreen.style.display = 'none';
     dashboard.style.display = 'block';
     init();
@@ -45,16 +49,22 @@ async function login() {
       body: JSON.stringify({ password: pw })
     });
     const j = await res.json();
-    if (j.ok) { sessionStorage.setItem('purplebear_auth', '1'); checkAuth(); }
+    if (j.ok) {
+      sessionStorage.setItem('purplebear_auth', '1');
+      sessionStorage.setItem('purplebear_role', j.source === 'assistant' ? 'assistant' : 'owner');
+      checkAuth();
+    }
     else { loginError.style.display = 'block'; }
   } catch (e) {
-    // Network fallback so a CF outage doesn't lock the owner out.
-    if (pw === ADMIN_PASSWORD) { sessionStorage.setItem('purplebear_auth', '1'); checkAuth(); }
+    // Network fallback so a CF outage doesn't lock the owner out. Only the owner
+    // password is known client-side, so the fallback always grants the owner role.
+    if (pw === ADMIN_PASSWORD) { sessionStorage.setItem('purplebear_auth', '1'); sessionStorage.setItem('purplebear_role', 'owner'); checkAuth(); }
     else { loginError.style.display = 'block'; }
   }
 }
 document.getElementById('logoutBtn').addEventListener('click', () => {
   sessionStorage.removeItem('purplebear_auth');
+  sessionStorage.removeItem('purplebear_role');
   location.reload();
 });
 
@@ -99,6 +109,48 @@ document.getElementById('cpSaveBtn')?.addEventListener('click', async () => {
     err.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'Change password';
+  }
+});
+
+// ====== STAFF ACCESS (owner sets a limited "assistant" password) ======
+function _closeStaffAccess() { const m = document.getElementById('staffAccessModal'); if (m) m.style.display = 'none'; }
+document.getElementById('staffAccessBtn')?.addEventListener('click', () => {
+  const m = document.getElementById('staffAccessModal');
+  if (!m) return;
+  ['saCurrent', 'saNew'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('saError').style.display = 'none';
+  m.style.display = 'flex';
+  document.getElementById('saCurrent')?.focus();
+});
+document.getElementById('saCancelBtn')?.addEventListener('click', _closeStaffAccess);
+document.getElementById('staffAccessModal')?.addEventListener('click', e => { if (e.target.id === 'staffAccessModal') _closeStaffAccess(); });
+document.getElementById('saSaveBtn')?.addEventListener('click', async () => {
+  const cur = document.getElementById('saCurrent').value;
+  const nw = document.getElementById('saNew').value.trim();
+  const err = document.getElementById('saError');
+  err.style.display = 'none';
+  if (!cur) { err.textContent = 'Enter your owner password to confirm.'; err.style.display = 'block'; return; }
+  if (nw && nw.length < 4) { err.textContent = 'Staff password must be at least 4 characters (or leave blank to switch it off).'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('saSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch(`${API_BASE}/api/set-staff-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current: cur, next: nw })
+    });
+    const j = await res.json();
+    if (j.ok) {
+      _closeStaffAccess();
+      showToast(j.removed ? 'Staff access switched off.' : 'Staff password saved. Share it with your helper — they can sell but not see money reports.');
+    } else {
+      err.textContent = j.error || 'Could not save staff password.';
+      err.style.display = 'block';
+    }
+  } catch (e) {
+    err.textContent = 'Network error: ' + (e.message || e);
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save staff password';
   }
 });
 
@@ -1728,7 +1780,7 @@ function renderInventory() {
   document.getElementById('invKpiGrid').innerHTML = [
     { label: 'Total items', val: totalItems, sub: 'SKUs listed', cls: '' },
     { label: 'Units in stock', val: totalUnits.toLocaleString(), sub: 'across all sizes', cls: 'success' },
-    { label: 'Inventory value', val: fmtKsh(totalValue), sub: 'at listed prices', cls: '' },
+    { label: 'Inventory value', val: fmtKsh(totalValue), sub: 'at listed prices', cls: 'inv-kpi-money' },
     { label: 'Low stock', val: lowStock, sub: '≤ 5 units remaining', cls: lowStock > 0 ? 'warn' : '' },
     { label: 'Out of stock', val: outOfStock, sub: 'need restocking', cls: outOfStock > 0 ? 'danger' : '' },
   ].map(k => `
