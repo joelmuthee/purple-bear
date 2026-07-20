@@ -1574,6 +1574,16 @@ summary.dash-summary:hover .dash-title { color: var(--gold-deep); }
 .pos-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); }
 .pos-results { margin-top: 6px; max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .pos-chosen { margin: 10px 0 4px; font-size: 14px; color: var(--ink); }
+/* Cart — the multi-item basket in Sell in store. Mirrors .bulksell-row. */
+.pos-cart { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 4px; }
+.pos-cart-row { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.035); border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 8px 12px; }
+.pos-cart-name { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+.pos-cart-amt { flex: 0 0 auto; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.pos-cart-x { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.15); background: #fff; color: #b00020; font-size: 16px; line-height: 1; cursor: pointer; font-family: inherit; padding: 0; }
+.pos-cart-x:hover { background: #fff0f1; border-color: #e0a3ac; }
+.pos-cart-sub { display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 700; color: var(--ink); padding: 6px 12px 2px; }
+.pos-section-head { font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: 0.02em; margin: 16px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pos-section-head small { font-weight: 400; color: var(--ink-faint); letter-spacing: 0; }
 .pos-chosen button { background: none; border: none; color: var(--gold-deep); text-decoration: underline; cursor: pointer; font-size: 13px; font-family: inherit; }
 .pos-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .pos-row .field { flex: 1; min-width: 120px; }
