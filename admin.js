@@ -1196,8 +1196,13 @@ async function recordSale(withBuyer) {
     if (typeof renderOwed === 'function') renderOwed();
     showToast(`Sale recorded — ${qty}× ${size} sold.`);
     if (withBuyer && (sale.buyerName || sale.buyerPhone)) sendBuyerToGHL(soldBag, sale);
-    // Offer a receipt (same panel the Sell-in-store flow uses).
-    lastPosSale = { name: soldBag ? soldBag.name : '', size, qty, amount: salePrice, paid: amountPaid, balance, discount, listPrice, paymentMethod: sale.paymentMethod, buyerName: sale.buyerName, buyerPhone: sale.buyerPhone, soldAt: sale.soldAt };
+    // Offer a receipt (same panel the Sell-in-store flow uses). Uses the shared
+    // multi-line receipt shape (lines[] + total) so the renderers work.
+    lastPosSale = {
+      lines: [{ name: soldBag ? soldBag.name : '', size, color: sale.color || '', qty, amount: salePrice, listPrice: listPrice || salePrice, discount: discount || 0 }],
+      total: salePrice * qty, paid: amountPaid, balance,
+      paymentMethod: sale.paymentMethod, buyerName: sale.buyerName, buyerPhone: sale.buyerPhone, soldAt: sale.soldAt,
+    };
     showPosReceipt(lastPosSale);
     document.getElementById('posDash').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) { showToast('Error: ' + err.message); }
