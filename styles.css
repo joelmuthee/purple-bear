@@ -967,29 +967,45 @@ html { scroll-behavior: smooth; }
 .cstk-table .cstk-qty:focus { outline: none; border-color: var(--gold); }
 .stock-entry-item input[type="number"] { width: 56px; text-align: center; padding: 7px 6px; font-size: 13px; }
 
-/* ===== Assistant role — sell + manage stock, but no money/report views =====
-   Applied by admin.js adding `role-assistant` to <body> after an assistant login.
-   Hides the reporting dashboards, their nav links, and the stray money figures
-   inside kept views (today's takings, inventory value, buying price, owner tools). */
+/* ===== Assistant (staff) role — SALES ENTRY + TODAY ONLY =====
+   Applied by admin.js adding `role-assistant` to <body> after a staff login.
+   Owner directive 2026-07-20: staff make sales entry and see only the day's
+   sales. Everything else (catalogue management, inventory, clients, reports)
+   is hidden. Today's takings + today's sales list ARE shown to staff so they
+   can reconcile the day with the owner. Hide every section + nav link except
+   "Sell in store", plus the owner-only header buttons. */
 body.role-assistant #salesDash,
 body.role-assistant #insightsDash,
 body.role-assistant #expensesDash,
 body.role-assistant #reportDash,
 body.role-assistant #owedDash,
 body.role-assistant #broadcastDash,
+body.role-assistant #invDash,
+body.role-assistant #clientsDash,
+body.role-assistant #addForm,
+body.role-assistant #allItemsSection,
+body.role-assistant .admin-nav a[href="#addForm"],
 body.role-assistant .admin-nav a[href="#salesDash"],
-body.role-assistant .admin-nav a[href="#insightsDash"],
-body.role-assistant .admin-nav a[href="#expensesDash"],
-body.role-assistant .admin-nav a[href="#reportDash"],
-body.role-assistant .admin-nav a[href="#owedDash"],
+body.role-assistant .admin-nav a[href="#invDash"],
 body.role-assistant .admin-nav a[href="#broadcastDash"],
-body.role-assistant #posTodaySplit,
-body.role-assistant .inv-kpi-money,
-body.role-assistant .client-money,
-body.role-assistant .clients-list .owed-amount,
-body.role-assistant #costField,
+body.role-assistant .admin-nav a[href="#clientsDash"],
+body.role-assistant .admin-nav a[href="#owedDash"],
+body.role-assistant .admin-nav a[href="#expensesDash"],
+body.role-assistant .admin-nav a[href="#insightsDash"],
+body.role-assistant .admin-nav a[href="#reportDash"],
+body.role-assistant .admin-nav a[href="#allItems"],
 body.role-assistant #changePasswordBtn,
 body.role-assistant #staffAccessBtn { display: none !important; }
+
+/* ===== Today's sales list (Sell-in-store) ===== */
+.pos-today-list { margin: 0 0 16px; }
+.pos-today-list-head { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 4px 0 8px; }
+.pos-today-list-head span { font-weight: 400; color: #999; }
+.pos-today-empty { font-size: 13px; color: #999; margin: 0; }
+.pos-today-row { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.pos-today-row .ptr-name { flex: 1 1 auto; font-weight: 600; color: var(--ink); }
+.pos-today-row .ptr-amt { flex: 0 0 auto; font-weight: 700; }
+.pos-today-row .ptr-time { flex: 0 0 auto; color: #999; font-size: 12px; min-width: 42px; text-align: right; }
 
 /* ===== Collapsible admin sections (mobile-safe) =====
    Manual add-item form + each size chart + the WhatsApp Marketing section all

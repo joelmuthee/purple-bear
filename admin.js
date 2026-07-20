@@ -1761,6 +1761,32 @@ function renderDashboard() {
       + (owedToday > 0 ? `<span class="pos-chip owed">📝 On credit ${fmtKsh(owedToday)}</span>` : '');
   }
 
+  // Today's sales — itemised list under the takings. Owner + staff use it to
+  // reconcile the day (staff see ONLY this + the Sell screen). Same "today" window.
+  const todayListEl = document.getElementById('posTodayList');
+  if (todayListEl) {
+    const todayStart = startOfDay(now);
+    const rows = [];
+    bags.forEach(bag => (bag.sales || []).forEach(s => {
+      const when = new Date(s.soldAt);
+      if (when >= todayStart) rows.push({ bag, s, when });
+    }));
+    rows.sort((a, b) => b.when - a.when);
+    if (!rows.length) {
+      todayListEl.innerHTML = '<div class="pos-today-list-head">Today\'s sales</div><p class="pos-today-empty">No sales yet today.</p>';
+    } else {
+      todayListEl.innerHTML = '<div class="pos-today-list-head">Today\'s sales <span>(' + rows.length + ')</span></div>'
+        + rows.map(({ bag, s, when }) => {
+          const total = saleTotal(bag, s);
+          const paid = (s.amountPaid != null) ? Math.min(total, Math.max(0, Number(s.amountPaid) || 0)) : total;
+          const owed = Math.max(0, total - paid);
+          const t = when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          const qtyTxt = (Number(s.qty) || 1) > 1 ? ` ×${s.qty}` : '';
+          return `<div class="pos-today-row"><span class="ptr-name">${escapeHtml(bag.name)}${s.size ? ` · ${escapeHtml(s.size)}` : ''}${s.color ? ` · ${escapeHtml(s.color)}` : ''}${qtyTxt}</span><span class="ptr-amt">${fmtKsh(total)}${owed > 0 ? ` <span class="owed-amount">owes ${fmtKsh(owed)}</span>` : ''}</span><span class="ptr-time">${t}</span></div>`;
+        }).join('');
+    }
+  }
+
   // Top categories by units sold
   const catUnits = {}, catRev = {};
   bags.forEach(bag => {

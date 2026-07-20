@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#5b2a86">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260720cart">
+<link rel="stylesheet" href="styles.css?v=20260720staff3">
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LeDBFwpAAAAAJe8ux9-imrqZ2ueRsEtdiWoDDpX" async defer></script>
 </head>
 <body style="background:var(--bg);">
@@ -60,6 +60,7 @@
     <h2 class="dash-title">🛒 Sell in store</h2>
     <p class="pos-sub">Record a sale you made in person. Stock updates and it lands in your Sales totals automatically. Tap <strong>M-Pesa</strong> just to note how you were paid.</p>
     <div id="posTodaySplit" class="pos-today"></div>
+    <div id="posTodayList" class="pos-today-list"></div>
 
     <div class="pos-card">
       <div class="field">
@@ -528,6 +529,7 @@
   </div>
 
   <!-- ====== ITEM LIST ====== -->
+  <div id="allItemsSection">
   <div class="section-divider" id="allItems">
     All items <span id="bagCount">0</span>
     <button class="btn-admin" style="margin-left:auto;font-size:12px;padding:6px 12px;" onclick="bulkSelectAll()">Select all</button>
@@ -553,6 +555,7 @@
     <button class="btn-admin" onclick="bulkClear()">Clear</button>
   </div>
   <div class="admin-list" id="adminList"></div>
+  </div><!-- /allItemsSection -->
 
 
 </div><!-- /dashboard -->
@@ -911,6 +914,6 @@
   </div>
 </div>
 
-<script src="admin.js?v=20260720cart"></script>
+<script src="admin.js?v=20260720staff3"></script>
 </body>
 </html>
