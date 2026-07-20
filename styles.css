@@ -997,6 +997,9 @@ body.role-assistant .admin-nav a[href="#allItems"],
 body.role-assistant #changePasswordBtn,
 body.role-assistant #staffAccessBtn { display: none !important; }
 
+/* ===== Multi-item sale hint (Sell-in-store) ===== */
+.pos-multi-hint { font-size: 13px; line-height: 1.5; color: #6b5b00; background: #fff7d6; border: 1px solid #f0e2a0; border-radius: 8px; padding: 9px 12px; margin: 0 0 14px; }
+
 /* ===== Today's sales list (Sell-in-store) ===== */
 .pos-today-list { margin: 0 0 16px; }
 .pos-today-list-head { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 4px 0 8px; }
