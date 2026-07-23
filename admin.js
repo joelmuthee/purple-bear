@@ -1194,6 +1194,7 @@ async function recordSale(withBuyer) {
     renderInventory();
     if (typeof renderClients === 'function') renderClients();
     if (typeof renderOwed === 'function') renderOwed();
+    if (typeof renderLoyalty === 'function') renderLoyalty();
     showToast(`Sale recorded — ${qty}× ${size} sold.`);
     if (withBuyer && (sale.buyerName || sale.buyerPhone)) sendBuyerToGHL(soldBag, sale);
     // Offer a receipt (same panel the Sell-in-store flow uses). Uses the shared
@@ -1834,6 +1835,7 @@ function renderDashboard() {
     : '<p style="color:#999;font-size:13px;">No sales recorded yet.</p>';
 
   if (typeof renderOwed === 'function') renderOwed();
+  if (typeof renderLoyalty === 'function') renderLoyalty();
   if (typeof renderExpenses === 'function') renderExpenses();
 }
 
@@ -2442,6 +2444,153 @@ function clientWaPhone(p) {
   else if (d.length === 9) d = '254' + d;
   return d;
 }
+
+// ==================== LOYALTY (Shop Manager 5k) ====================
+// Rewards repeat buyers — a stamp/points card built automatically from the
+// Clients ledger (no extra entry). Admin-only; nothing on the public site.
+const LOYALTY_ENABLED = true; // 5k Shop Manager tier; flip false below 5k
+const LOYALTY_SHOP = 'Purple Bear';
+const DEFAULT_LOYALTY = { enabled: true, mode: 'spend', threshold: 50, pointsPerKsh: 0.01, rewardLabel: 'free delivery or Ksh 500 off your next pair' };
+let loyaltyQuery = '';
+const phoneKey = p => String(p == null ? '' : p).replace(/[^0-9]/g, '');
+
+function loyaltyConf() {
+  const l = settings.loyalty || {};
+  return {
+    enabled: l.enabled !== false,
+    mode: l.mode === 'stamps' ? 'stamps' : 'spend',
+    threshold: Number(l.threshold) > 0 ? Number(l.threshold) : DEFAULT_LOYALTY.threshold,
+    pointsPerKsh: Number(l.pointsPerKsh) > 0 ? Number(l.pointsPerKsh) : DEFAULT_LOYALTY.pointsPerKsh,
+    rewardLabel: (l.rewardLabel || '').trim() || DEFAULT_LOYALTY.rewardLabel,
+    redemptions: Array.isArray(l.redemptions) ? l.redemptions : [],
+  };
+}
+function loyaltyStatus(c, conf) {
+  const earned = conf.mode === 'spend' ? Math.floor(c.spend * conf.pointsPerKsh) : c.purchases.length;
+  const redeemed = conf.redemptions.filter(r => phoneKey(r.phone) === c.phone).reduce((s, r) => s + (Number(r.cost) || 0), 0);
+  const available = Math.max(0, earned - redeemed);
+  return { earned, redeemed, available, ready: Math.floor(available / conf.threshold), progress: available % conf.threshold, threshold: conf.threshold, unit: conf.mode === 'spend' ? 'points' : 'stamps' };
+}
+function loyaltyMessage(c, conf, st) {
+  const first = (c.name || 'there').split(' ')[0];
+  let msg = `Hi ${first}! `;
+  if (st.ready >= 1) msg += `Good news, you've earned ${conf.rewardLabel} on your ${LOYALTY_SHOP} loyalty card. Ask for it on your next visit.`;
+  else if (conf.mode === 'spend') msg += `You're at ${st.progress} of ${conf.threshold} points on your ${LOYALTY_SHOP} loyalty card. ${conf.threshold - st.progress} more and you get ${conf.rewardLabel}.`;
+  else { const remaining = conf.threshold - st.progress; msg += `You've collected ${st.progress} of ${conf.threshold} stamps with ${LOYALTY_SHOP}. ${remaining} more and ${conf.rewardLabel} is yours.`; }
+  return msg + `\n${LOYALTY_SHOP}`;
+}
+function syncLoyaltyModeUI(mode) {
+  const ppk = document.getElementById('loyaltyPpkField');
+  const lbl = document.getElementById('loyaltyThresholdLabel');
+  if (ppk) ppk.style.display = mode === 'spend' ? '' : 'none';
+  if (lbl) lbl.textContent = mode === 'spend' ? 'Points needed for a reward' : 'Stamps needed for a reward';
+}
+function renderLoyalty() {
+  if (!LOYALTY_ENABLED) return;
+  const conf = loyaltyConf();
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; };
+  const enabledEl = document.getElementById('loyaltyEnabled');
+  if (enabledEl && document.activeElement !== enabledEl) enabledEl.checked = conf.enabled;
+  const modeEl = document.getElementById('loyaltyMode');
+  if (modeEl && document.activeElement !== modeEl) modeEl.value = conf.mode;
+  setVal('loyaltyThreshold', conf.threshold);
+  setVal('loyaltyPpk', conf.pointsPerKsh);
+  setVal('loyaltyReward', conf.rewardLabel);
+  syncLoyaltyModeUI(modeEl ? modeEl.value : conf.mode);
+
+  const withStatus = clientsLedger().map(c => ({ c, st: loyaltyStatus(c, conf) }));
+  const total = withStatus.length;
+  const repeat = withStatus.filter(x => x.c.purchases.length >= 2).length;
+  const readyCount = withStatus.filter(x => x.st.ready >= 1).length;
+  const nav = document.getElementById('navLoyaltyCount'); if (nav) nav.textContent = total || '';
+  const kpi = document.getElementById('loyaltyKpiGrid');
+  if (kpi) kpi.innerHTML = `
+    <div class="inv-kpi"><div class="inv-kpi-label">Customers</div><div class="inv-kpi-val">${total}</div><div class="inv-kpi-sub">${repeat} repeat buyer${repeat === 1 ? '' : 's'}</div></div>
+    <div class="inv-kpi success"><div class="inv-kpi-label">Rewards ready</div><div class="inv-kpi-val">${readyCount}</div><div class="inv-kpi-sub">can claim now</div></div>
+    <div class="inv-kpi"><div class="inv-kpi-label">Redeemed</div><div class="inv-kpi-val">${conf.redemptions.length}</div><div class="inv-kpi-sub">rewards given all-time</div></div>
+    <div class="inv-kpi"><div class="inv-kpi-label">Reward</div><div class="inv-kpi-val" style="font-size:15px;line-height:1.35;">${escapeHtml(conf.rewardLabel)}</div><div class="inv-kpi-sub">${conf.threshold} ${conf.mode === 'spend' ? 'points' : 'stamps'} each</div></div>`;
+  const list = document.getElementById('loyaltyList');
+  if (!list) return;
+  if (!total) { list.innerHTML = '<p style="font-size:13px;color:#999;padding:14px;">No customers yet. Save a buyer\'s name and phone when you record a sale and they\'ll appear here.</p>'; return; }
+  const q = loyaltyQuery.toLowerCase();
+  const rows = withStatus.filter(({ c }) => !q || (c.name || '').toLowerCase().includes(q) || c.phone.includes(q)).sort((a, b) => (b.st.ready - a.st.ready) || (b.c.lastAt - a.c.lastAt));
+  if (!rows.length) { list.innerHTML = '<p style="font-size:13px;color:#999;padding:14px;">No customers match your search.</p>'; return; }
+  list.innerHTML = rows.map(({ c, st }) => {
+    const ready = st.ready >= 1;
+    const pct = ready ? 100 : Math.min(100, Math.round((st.progress / conf.threshold) * 100));
+    const badge = ready ? `<span class="loyalty-ready-badge">Reward ready${st.ready > 1 ? ' ×' + st.ready : ''}</span>` : '';
+    const progLine = ready ? `<span>Can claim ${escapeHtml(conf.rewardLabel)}</span><span>${st.available} ${st.unit}</span>` : `<span>${st.progress} / ${conf.threshold} ${st.unit}</span><span>${conf.threshold - st.progress} to go</span>`;
+    return `<div class="loyalty-row ${ready ? 'ready' : ''}">
+      <div class="loyalty-row-main">
+        <div class="loyalty-row-name">${escapeHtml(c.name || 'Unnamed buyer')}${badge}</div>
+        <div class="loyalty-row-sub">${escapeHtml(c.phone)} · ${c.purchases.length} purchase${c.purchases.length === 1 ? '' : 's'} · ${fmtKsh(c.spend)} spent${c.lastAt ? ' · last ' + relTime(new Date(c.lastAt).toISOString()) : ''}</div>
+        <div class="loyalty-row-progress"><div class="loyalty-prog-meta">${progLine}</div><div class="loyalty-bar-track"><div class="loyalty-bar-fill" style="width:${pct}%"></div></div></div>
+      </div>
+      <div class="loyalty-row-actions">
+        <button class="btn-admin" onclick="loyaltyNudge('${c.phone}')">WhatsApp</button>
+        ${ready ? `<button class="btn-admin gold" onclick="loyaltyRedeem('${c.phone}')">Redeem</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function saveLoyaltyConfig() {
+  const mode = document.getElementById('loyaltyMode').value === 'stamps' ? 'stamps' : 'spend';
+  const threshold = parseInt(document.getElementById('loyaltyThreshold').value, 10);
+  const ppk = parseFloat(document.getElementById('loyaltyPpk').value);
+  const reward = document.getElementById('loyaltyReward').value.trim();
+  const enabled = document.getElementById('loyaltyEnabled').checked;
+  if (!(threshold > 0)) { showToast('Reward threshold must be a positive whole number.'); return; }
+  try {
+    await apiMutateAndPublish(() => {
+      const prev = settings.loyalty || {};
+      settings.loyalty = { enabled, mode, threshold, pointsPerKsh: ppk > 0 ? ppk : DEFAULT_LOYALTY.pointsPerKsh, rewardLabel: reward || DEFAULT_LOYALTY.rewardLabel, redemptions: Array.isArray(prev.redemptions) ? prev.redemptions : [] };
+    });
+    renderLoyalty();
+    showToast('Loyalty settings saved.');
+  } catch (err) { showToast('Sync failed: ' + err.message); }
+}
+window.loyaltyNudge = (phone) => {
+  const conf = loyaltyConf();
+  const c = clientsLedger().find(x => x.phone === phone);
+  if (!c) return;
+  window.open(`https://wa.me/${clientWaPhone(phone)}?text=${encodeURIComponent(loyaltyMessage(c, conf, loyaltyStatus(c, conf)))}`, '_blank');
+};
+window.loyaltyRedeem = async (phone) => {
+  const conf = loyaltyConf();
+  const c = clientsLedger().find(x => x.phone === phone);
+  if (!c) return;
+  const st = loyaltyStatus(c, conf);
+  if (st.ready < 1) { showToast('Not enough ' + st.unit + ' to redeem yet.'); return; }
+  if (!await confirmAction(`Redeem ${conf.rewardLabel} for ${c.name || phone}? This uses ${conf.threshold} ${st.unit}.`, 'Redeem')) return;
+  try {
+    await apiMutateAndPublish(() => {
+      if (!settings.loyalty || typeof settings.loyalty !== 'object') settings.loyalty = {};
+      if (!Array.isArray(settings.loyalty.redemptions)) settings.loyalty.redemptions = [];
+      settings.loyalty.redemptions.push({ phone, name: c.name || '', at: new Date().toISOString(), mode: conf.mode, cost: conf.threshold, rewardLabel: conf.rewardLabel });
+    });
+    renderLoyalty();
+    showToast('Reward redeemed for ' + (c.name || phone) + '.');
+  } catch (err) { showToast('Sync failed: ' + err.message); }
+};
+function initLoyalty() {
+  if (!LOYALTY_ENABLED) {
+    document.getElementById('loyaltyDash')?.style.setProperty('display', 'none');
+    document.querySelector('.admin-nav a[href="#loyaltyDash"]')?.style.setProperty('display', 'none');
+    return;
+  }
+  document.getElementById('loyaltySaveBtn')?.addEventListener('click', saveLoyaltyConfig);
+  document.getElementById('loyaltyMode')?.addEventListener('change', e => syncLoyaltyModeUI(e.target.value));
+  const ls = document.getElementById('loyaltySearch');
+  if (ls) { let t; ls.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { loyaltyQuery = ls.value.trim(); renderLoyalty(); }, 160); }); }
+  document.getElementById('loyaltyMsgReadyBtn')?.addEventListener('click', () => {
+    const conf = loyaltyConf();
+    const ready = clientsLedger().map(c => ({ c, st: loyaltyStatus(c, conf) })).filter(x => x.st.ready >= 1);
+    if (!ready.length) { showToast('No customers have a reward ready.'); return; }
+    showToast(`Opening ${ready.length} WhatsApp tab${ready.length === 1 ? '' : 's'}…`);
+    ready.forEach(({ c }, i) => setTimeout(() => { window.open(`https://wa.me/${clientWaPhone(c.phone)}?text=${encodeURIComponent(loyaltyMessage(c, conf, loyaltyStatus(c, conf)))}`, '_blank'); }, i * 700));
+  });
+}
+
 function renderClients() {
   const listEl = document.getElementById('clientsList');
   if (!listEl) return;
@@ -3472,6 +3621,8 @@ async function init() {
   renderBroadcastPreview();
   renderClients();
   renderOwed();
+  initLoyalty();
+  if (typeof renderLoyalty === 'function') renderLoyalty();
   renderInsights();
   loadReportConfig();
   // Tier gate: hide the Boost-to-top bulk buttons on a one-off Shopfront build.
@@ -3683,6 +3834,25 @@ function posReceiptDiscount(s) {
   return (s.lines || []).reduce((a, l) => a + (l.discount > 0 ? ((l.listPrice || l.amount) - l.amount) * l.qty : 0), 0);
 }
 
+// NEW (Purple Bear): the customer's loyalty points, shown right on the receipt.
+// Recomputed from the Clients ledger at render time, and the sale is already
+// written into bags[].sales before any receipt is drawn, so the number the
+// customer reads already includes the pair they just bought. Returns '' when
+// there's no phone on the sale (points are tracked per client phone).
+function posLoyaltyLine(s) {
+  if (typeof LOYALTY_ENABLED === 'undefined' || !LOYALTY_ENABLED) return '';
+  if (!s || !s.buyerPhone) return '';
+  const key = phoneKey(s.buyerPhone);
+  if (key.length < 9) return '';
+  const conf = loyaltyConf();
+  if (!conf.enabled) return '';
+  const c = clientsLedger().find(x => x.phone === key);
+  if (!c) return '';
+  const st = loyaltyStatus(c, conf);
+  if (st.ready >= 1) return `You have ${st.available} ${st.unit}. That's enough for ${conf.rewardLabel}, ask for it on your next visit.`;
+  return `You have ${st.available} ${st.unit}. ${conf.threshold - st.progress} more and you get ${conf.rewardLabel}.`;
+}
+
 function posReceiptText(s) {
   const lines = [`*Purple Bear* receipt`];
   (s.lines || []).forEach(l => {
@@ -3693,6 +3863,8 @@ function posReceiptText(s) {
   const disc = posReceiptDiscount(s);
   if (disc > 0) lines.push(`Discount: ${fmtKsh(disc)} off (was ${fmtKsh(s.total + disc)}).`);
   if (s.balance > 0) lines.push(`Paid now: ${fmtKsh(s.paid)}. Balance owing: ${fmtKsh(s.balance)}.`);
+  const pts = posLoyaltyLine(s);
+  if (pts) lines.push(pts);
   lines.push(`Thank you for shopping with us. Nairobi.`);
   return lines.join('\n');
 }
@@ -3710,8 +3882,10 @@ function showPosReceipt(s) {
   const disc = posReceiptDiscount(s);
   const discLine = disc > 0 ? `<br><span style="color:#1a7a3a;">Discount ${fmtKsh(disc)} off (was ${fmtKsh(s.total + disc)})</span>` : '';
   const balLine = s.balance > 0 ? `<br><span class="owed-amount">Paid ${fmtKsh(s.paid)} · still owes ${fmtKsh(s.balance)}</span>` : '';
+  const pts = posLoyaltyLine(s);
+  const ptsLine = pts ? `<br><span style="color:var(--gold);">⭐ ${escapeHtml(pts)}</span>` : '';
   document.getElementById('posReceiptSummary').innerHTML =
-    `${itemsHtml}<br><strong>Total ${fmtKsh(s.total)}</strong> · paid by ${pay}${discLine}${balLine}`;
+    `${itemsHtml}<br><strong>Total ${fmtKsh(s.total)}</strong> · paid by ${pay}${discLine}${balLine}${ptsLine}`;
   const wa = document.getElementById('posWaReceiptBtn');
   if (s.buyerPhone && s.buyerPhone.replace(/[^0-9]/g, '').length >= 9) {
     wa.href = `https://wa.me/${posWaPhone(s.buyerPhone)}?text=${encodeURIComponent(posReceiptText(s))}`;
@@ -3763,6 +3937,7 @@ function posPrintReceipt() {
       <div class="rcpt-row"><span>Paid by</span><span>${s.paymentMethod === 'mpesa' ? 'M-Pesa' : 'Cash'}</span></div>
       ${s.balance > 0 ? `<div class="rcpt-row"><span>Paid now</span><span>${fmtKsh(s.paid)}</span></div><div class="rcpt-row rcpt-total"><span>BALANCE OWING</span><span>${fmtKsh(s.balance)}</span></div>` : ''}
       <div class="rcpt-date">${d.toLocaleString('en-GB')}</div>
+      ${posLoyaltyLine(s) ? `<div class="rcpt-foot">${escapeHtml(posLoyaltyLine(s))}</div>` : ''}
       <div class="rcpt-foot">Thank you for shopping with us!</div>
     </div>`;
   window.print();
@@ -3825,6 +4000,7 @@ async function recordPosSale() {
     renderList(); renderDashboard(); renderInventory();
     if (typeof renderClients === 'function') renderClients();
     if (typeof renderOwed === 'function') renderOwed();
+    if (typeof renderLoyalty === 'function') renderLoyalty();
     posReset();
     showPosReceipt(lastPosSale);
     const n = recLines.length;
@@ -3854,8 +4030,21 @@ function buildReceiptCanvas(s, logoImg) {
   const SCALE = 3, W = 620, M = 44;
   const hasBal = s.balance > 0;
   const lineCount = (s.lines || []).length || 1;
+  // Loyalty points line (blank when the sale has no phone) — wrapped to the
+  // receipt width so the canvas grows by exactly the rows it needs.
+  const ptsTxt = posLoyaltyLine(s);
+  const ptsRows = [];
+  if (ptsTxt) {
+    let cur = '';
+    for (const w of ptsTxt.split(' ')) {
+      if (cur && (cur + ' ' + w).length > 48) { ptsRows.push(cur); cur = w; }
+      else cur = cur ? cur + ' ' + w : w;
+    }
+    if (cur) ptsRows.push(cur);
+  }
   const seg = { top: 34, logo: logoImg ? 132 : 88, caption: 30, addr: 46, div1: 26,
-    items: lineCount * 48 + 16, div2: 26, total: 52, cust: s.buyerName ? 34 : 0, paid: 34, bal: hasBal ? 70 : 0, date: 38, foot: 60, bottom: 30 };
+    items: lineCount * 48 + 16, div2: 26, total: 52, cust: s.buyerName ? 34 : 0, paid: 34, bal: hasBal ? 70 : 0, date: 38,
+    loyalty: ptsRows.length ? ptsRows.length * 19 + 12 : 0, foot: 60, bottom: 30 };
   const H = Object.values(seg).reduce((a, b) => a + b, 0);
   const c = document.createElement('canvas');
   c.width = W * SCALE; c.height = H * SCALE;
@@ -3925,6 +4114,12 @@ function buildReceiptCanvas(s, logoImg) {
 
   x.textAlign = 'center'; x.fillStyle = '#8a7460'; x.font = '13px Arial';
   x.fillText(new Date(s.soldAt || Date.now()).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }), W / 2, y); y += seg.date;
+
+  if (ptsRows.length) {
+    x.fillStyle = '#7A1FA0'; x.font = '600 13.5px Arial';
+    ptsRows.forEach((r, i) => x.fillText(r, W / 2, y + i * 19));
+    y += seg.loyalty;
+  }
 
   x.fillStyle = '#8a6f44'; x.font = 'italic 16px Georgia, serif';
   x.fillText('Thank you for shopping with us', W / 2, y);
