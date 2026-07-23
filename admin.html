@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#5b2a86">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260720loyalty">
+<link rel="stylesheet" href="styles.css?v=20260723reward">
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LeDBFwpAAAAAJe8ux9-imrqZ2ueRsEtdiWoDDpX" async defer></script>
 </head>
 <body style="background:var(--bg);">
@@ -102,6 +102,15 @@
             <button type="button" class="btn-paid-none" id="posPaidNone">Not paid yet</button>
           </div>
           <p class="paid-hint" id="posPaidHint" style="display:none;"></p>
+        </div>
+        <div class="field" id="posRedeemBox" style="display:none;">
+          <label>Use loyalty reward <small style="font-weight:400;color:#999;" id="posRedeemWho"></small></label>
+          <input id="posRedeemPoints" type="number" min="0" step="1" placeholder="Points to use (leave blank for none)">
+          <label id="posRedeemApplyRow" style="display:none;align-items:center;gap:8px;font-weight:400;margin:0;">
+            <input type="checkbox" id="posRedeemApply" style="width:auto;margin:0;">
+            <span id="posRedeemApplyText"></span>
+          </label>
+          <p class="paid-hint" id="posRedeemHint"></p>
         </div>
         <div class="field">
           <label>Sale date <small style="font-weight:400;color:#999;">change it if the items were taken earlier</small></label>
@@ -339,8 +348,33 @@
           <small style="color:#999;">0.01 = 1 point per Ksh 100 spent</small>
         </div>
         <div class="field">
-          <label>The reward</label>
+          <label>Reward type</label>
+          <select id="loyaltyRewardType">
+            <option value="points">Points off the bill (flexible)</option>
+            <option value="amount">Fixed amount off</option>
+            <option value="percent">Percent off</option>
+            <option value="item">Free item or free delivery</option>
+          </select>
+        </div>
+        <div class="field" id="loyaltyRewardAmountField" style="display:none;">
+          <label>Money off when they reach the reward (Ksh)</label>
+          <input id="loyaltyRewardAmount" type="number" min="1" step="50" placeholder="500">
+          <small style="color:#999;">Taken off the bill at the till, capped at what the bill comes to</small>
+        </div>
+        <div class="field" id="loyaltyRewardPercentField" style="display:none;">
+          <label>Percent off the bill (%)</label>
+          <input id="loyaltyRewardPercent" type="number" min="1" max="100" step="1" placeholder="10">
+          <small style="color:#999;">10 means 10% off whatever they are buying that day</small>
+        </div>
+        <div class="field" id="loyaltyRedeemValueField">
+          <label>1 point is worth (Ksh)</label>
+          <input id="loyaltyRedeemValue" type="number" min="1" step="1" placeholder="10">
+          <small style="color:#999;">Used when you take points off a bill at the till</small>
+        </div>
+        <div class="field">
+          <label>How to describe the reward</label>
           <input id="loyaltyReward" type="text" placeholder="e.g. free delivery or Ksh 500 off your next pair">
+          <small style="color:#999;">The wording customers see on receipts and WhatsApp messages</small>
         </div>
       </div>
       <div class="admin-actions">
@@ -962,6 +996,6 @@
   </div>
 </div>
 
-<script src="admin.js?v=20260720loyalty"></script>
+<script src="admin.js?v=20260723reward"></script>
 </body>
 </html>

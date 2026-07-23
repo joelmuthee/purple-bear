@@ -2450,7 +2450,13 @@ function clientWaPhone(p) {
 // Clients ledger (no extra entry). Admin-only; nothing on the public site.
 const LOYALTY_ENABLED = true; // 5k Shop Manager tier; flip false below 5k
 const LOYALTY_SHOP = 'Purple Bear';
-const DEFAULT_LOYALTY = { enabled: true, mode: 'spend', threshold: 50, pointsPerKsh: 0.01, rewardLabel: 'free delivery or Ksh 500 off your next pair' };
+// rewardType decides what reaching the threshold actually gives:
+//   points  = flexible, every point is worth redeemValue Ksh (the original behaviour)
+//   amount  = a fixed Ksh off (rewardAmount)
+//   percent = a share of the bill off (rewardPercent)
+//   item    = a free item or free delivery, no money off, she hands it over
+const DEFAULT_LOYALTY = { enabled: true, mode: 'spend', threshold: 50, pointsPerKsh: 0.01, redeemValue: 10, rewardType: 'points', rewardAmount: 500, rewardPercent: 10, rewardLabel: 'free delivery or Ksh 500 off your next pair' };
+const REWARD_TYPES = ['points', 'amount', 'percent', 'item'];
 let loyaltyQuery = '';
 const phoneKey = p => String(p == null ? '' : p).replace(/[^0-9]/g, '');
 
@@ -2461,6 +2467,11 @@ function loyaltyConf() {
     mode: l.mode === 'stamps' ? 'stamps' : 'spend',
     threshold: Number(l.threshold) > 0 ? Number(l.threshold) : DEFAULT_LOYALTY.threshold,
     pointsPerKsh: Number(l.pointsPerKsh) > 0 ? Number(l.pointsPerKsh) : DEFAULT_LOYALTY.pointsPerKsh,
+    // Ksh each point is worth when taken off a bill at the till.
+    redeemValue: Number(l.redeemValue) > 0 ? Number(l.redeemValue) : DEFAULT_LOYALTY.redeemValue,
+    rewardType: REWARD_TYPES.includes(l.rewardType) ? l.rewardType : DEFAULT_LOYALTY.rewardType,
+    rewardAmount: Number(l.rewardAmount) > 0 ? Number(l.rewardAmount) : DEFAULT_LOYALTY.rewardAmount,
+    rewardPercent: Number(l.rewardPercent) > 0 ? Number(l.rewardPercent) : DEFAULT_LOYALTY.rewardPercent,
     rewardLabel: (l.rewardLabel || '').trim() || DEFAULT_LOYALTY.rewardLabel,
     redemptions: Array.isArray(l.redemptions) ? l.redemptions : [],
   };
@@ -2470,6 +2481,26 @@ function loyaltyStatus(c, conf) {
   const redeemed = conf.redemptions.filter(r => phoneKey(r.phone) === c.phone).reduce((s, r) => s + (Number(r.cost) || 0), 0);
   const available = Math.max(0, earned - redeemed);
   return { earned, redeemed, available, ready: Math.floor(available / conf.threshold), progress: available % conf.threshold, threshold: conf.threshold, unit: conf.mode === 'spend' ? 'points' : 'stamps' };
+}
+// What one reward is worth on a bill of `total`. Money off is always capped at
+// the bill, and for a free item there is no money off at all (she hands it over).
+function rewardOnBill(conf, total) {
+  const t = Math.max(0, Number(total) || 0);
+  if (conf.rewardType === 'amount') {
+    const ksh = Math.min(conf.rewardAmount, t);
+    return { pts: conf.threshold, ksh, label: `${fmtKsh(conf.rewardAmount)} off` };
+  }
+  if (conf.rewardType === 'percent') {
+    const ksh = Math.min(Math.round(t * conf.rewardPercent / 100), t);
+    return { pts: conf.threshold, ksh, label: `${conf.rewardPercent}% off (${fmtKsh(ksh)})` };
+  }
+  return { pts: conf.threshold, ksh: 0, label: conf.rewardLabel };
+}
+// Short plain-language wording for the reward, no bill needed.
+function rewardShortText(conf) {
+  if (conf.rewardType === 'amount') return `${fmtKsh(conf.rewardAmount)} off`;
+  if (conf.rewardType === 'percent') return `${conf.rewardPercent}% off the bill`;
+  return conf.rewardLabel;
 }
 function loyaltyMessage(c, conf, st) {
   const first = (c.name || 'there').split(' ')[0];
@@ -2482,7 +2513,16 @@ function loyaltyMessage(c, conf, st) {
 function syncLoyaltyModeUI(mode) {
   const ppk = document.getElementById('loyaltyPpkField');
   const lbl = document.getElementById('loyaltyThresholdLabel');
+  const rv = document.getElementById('loyaltyRedeemValueField');
+  const typeEl = document.getElementById('loyaltyRewardType');
+  const type = typeEl && REWARD_TYPES.includes(typeEl.value) ? typeEl.value : loyaltyConf().rewardType;
   if (ppk) ppk.style.display = mode === 'spend' ? '' : 'none';
+  // The Ksh-per-point box only matters for the flexible points reward.
+  if (rv) rv.style.display = (mode === 'spend' && type === 'points') ? '' : 'none';
+  const amt = document.getElementById('loyaltyRewardAmountField');
+  if (amt) amt.style.display = type === 'amount' ? '' : 'none';
+  const pct = document.getElementById('loyaltyRewardPercentField');
+  if (pct) pct.style.display = type === 'percent' ? '' : 'none';
   if (lbl) lbl.textContent = mode === 'spend' ? 'Points needed for a reward' : 'Stamps needed for a reward';
 }
 function renderLoyalty() {
@@ -2495,6 +2535,11 @@ function renderLoyalty() {
   if (modeEl && document.activeElement !== modeEl) modeEl.value = conf.mode;
   setVal('loyaltyThreshold', conf.threshold);
   setVal('loyaltyPpk', conf.pointsPerKsh);
+  setVal('loyaltyRedeemValue', conf.redeemValue);
+  const typeEl = document.getElementById('loyaltyRewardType');
+  if (typeEl && document.activeElement !== typeEl) typeEl.value = conf.rewardType;
+  setVal('loyaltyRewardAmount', conf.rewardAmount);
+  setVal('loyaltyRewardPercent', conf.rewardPercent);
   setVal('loyaltyReward', conf.rewardLabel);
   syncLoyaltyModeUI(modeEl ? modeEl.value : conf.mode);
 
@@ -2508,7 +2553,7 @@ function renderLoyalty() {
     <div class="inv-kpi"><div class="inv-kpi-label">Customers</div><div class="inv-kpi-val">${total}</div><div class="inv-kpi-sub">${repeat} repeat buyer${repeat === 1 ? '' : 's'}</div></div>
     <div class="inv-kpi success"><div class="inv-kpi-label">Rewards ready</div><div class="inv-kpi-val">${readyCount}</div><div class="inv-kpi-sub">can claim now</div></div>
     <div class="inv-kpi"><div class="inv-kpi-label">Redeemed</div><div class="inv-kpi-val">${conf.redemptions.length}</div><div class="inv-kpi-sub">rewards given all-time</div></div>
-    <div class="inv-kpi"><div class="inv-kpi-label">Reward</div><div class="inv-kpi-val" style="font-size:15px;line-height:1.35;">${escapeHtml(conf.rewardLabel)}</div><div class="inv-kpi-sub">${conf.threshold} ${conf.mode === 'spend' ? 'points' : 'stamps'} each</div></div>`;
+    <div class="inv-kpi"><div class="inv-kpi-label">Reward</div><div class="inv-kpi-val" style="font-size:15px;line-height:1.35;">${escapeHtml(rewardShortText(conf))}</div><div class="inv-kpi-sub">${conf.threshold} ${conf.mode === 'spend' ? 'points' : 'stamps'} each</div></div>`;
   const list = document.getElementById('loyaltyList');
   if (!list) return;
   if (!total) { list.innerHTML = '<p style="font-size:13px;color:#999;padding:14px;">No customers yet. Save a buyer\'s name and phone when you record a sale and they\'ll appear here.</p>'; return; }
@@ -2537,13 +2582,20 @@ async function saveLoyaltyConfig() {
   const mode = document.getElementById('loyaltyMode').value === 'stamps' ? 'stamps' : 'spend';
   const threshold = parseInt(document.getElementById('loyaltyThreshold').value, 10);
   const ppk = parseFloat(document.getElementById('loyaltyPpk').value);
+  const rvRaw = parseFloat((document.getElementById('loyaltyRedeemValue') || {}).value);
   const reward = document.getElementById('loyaltyReward').value.trim();
   const enabled = document.getElementById('loyaltyEnabled').checked;
+  const typeRaw = (document.getElementById('loyaltyRewardType') || {}).value;
+  const rewardType = REWARD_TYPES.includes(typeRaw) ? typeRaw : DEFAULT_LOYALTY.rewardType;
+  const amtRaw = parseFloat((document.getElementById('loyaltyRewardAmount') || {}).value);
+  const pctRaw = parseFloat((document.getElementById('loyaltyRewardPercent') || {}).value);
   if (!(threshold > 0)) { showToast('Reward threshold must be a positive whole number.'); return; }
+  if (rewardType === 'amount' && !(amtRaw > 0)) { showToast('Enter how much money comes off the bill.'); return; }
+  if (rewardType === 'percent' && !(pctRaw > 0 && pctRaw <= 100)) { showToast('Percent off must be between 1 and 100.'); return; }
   try {
     await apiMutateAndPublish(() => {
       const prev = settings.loyalty || {};
-      settings.loyalty = { enabled, mode, threshold, pointsPerKsh: ppk > 0 ? ppk : DEFAULT_LOYALTY.pointsPerKsh, rewardLabel: reward || DEFAULT_LOYALTY.rewardLabel, redemptions: Array.isArray(prev.redemptions) ? prev.redemptions : [] };
+      settings.loyalty = { enabled, mode, threshold, pointsPerKsh: ppk > 0 ? ppk : DEFAULT_LOYALTY.pointsPerKsh, redeemValue: rvRaw > 0 ? rvRaw : DEFAULT_LOYALTY.redeemValue, rewardType, rewardAmount: amtRaw > 0 ? amtRaw : DEFAULT_LOYALTY.rewardAmount, rewardPercent: pctRaw > 0 ? pctRaw : DEFAULT_LOYALTY.rewardPercent, rewardLabel: reward || DEFAULT_LOYALTY.rewardLabel, redemptions: Array.isArray(prev.redemptions) ? prev.redemptions : [] };
     });
     renderLoyalty();
     showToast('Loyalty settings saved.');
@@ -2561,12 +2613,13 @@ window.loyaltyRedeem = async (phone) => {
   if (!c) return;
   const st = loyaltyStatus(c, conf);
   if (st.ready < 1) { showToast('Not enough ' + st.unit + ' to redeem yet.'); return; }
-  if (!await confirmAction(`Redeem ${conf.rewardLabel} for ${c.name || phone}? This uses ${conf.threshold} ${st.unit}.`, 'Redeem')) return;
+  const rewardTxt = rewardShortText(conf);
+  if (!await confirmAction(`Redeem ${rewardTxt} for ${c.name || phone}? This uses ${conf.threshold} ${st.unit}.`, 'Redeem')) return;
   try {
     await apiMutateAndPublish(() => {
       if (!settings.loyalty || typeof settings.loyalty !== 'object') settings.loyalty = {};
       if (!Array.isArray(settings.loyalty.redemptions)) settings.loyalty.redemptions = [];
-      settings.loyalty.redemptions.push({ phone, name: c.name || '', at: new Date().toISOString(), mode: conf.mode, cost: conf.threshold, rewardLabel: conf.rewardLabel });
+      settings.loyalty.redemptions.push({ phone, name: c.name || '', at: new Date().toISOString(), mode: conf.mode, cost: conf.threshold, rewardType: conf.rewardType, rewardLabel: rewardTxt });
     });
     renderLoyalty();
     showToast('Reward redeemed for ' + (c.name || phone) + '.');
@@ -2580,6 +2633,10 @@ function initLoyalty() {
   }
   document.getElementById('loyaltySaveBtn')?.addEventListener('click', saveLoyaltyConfig);
   document.getElementById('loyaltyMode')?.addEventListener('change', e => syncLoyaltyModeUI(e.target.value));
+  document.getElementById('loyaltyRewardType')?.addEventListener('change', () => {
+    const m = document.getElementById('loyaltyMode');
+    syncLoyaltyModeUI(m ? m.value : loyaltyConf().mode);
+  });
   const ls = document.getElementById('loyaltySearch');
   if (ls) { let t; ls.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { loyaltyQuery = ls.value.trim(); renderLoyalty(); }, 160); }); }
   document.getElementById('loyaltyMsgReadyBtn')?.addEventListener('click', () => {
@@ -2997,7 +3054,7 @@ function syncPaid(priceId, qtyId, paidId, hintId, btnId) {
   () => syncPaid('salePriceInput', 'saleQtyInput', 'salePaidInput', 'salePaidHint', 'salePaidNone')));
 // POS paid hint is cart-aware (whole basket, not just the current line editor).
 ['posPaid', 'posPrice', 'posQty'].forEach(id => document.getElementById(id)?.addEventListener('input',
-  () => posSyncPaid()));
+  () => posSyncRedeem()));
 document.getElementById('salePaidNone')?.addEventListener('click', () => {
   document.getElementById('salePaidInput').value = '0';
   syncPaid('salePriceInput', 'saleQtyInput', 'salePaidInput', 'salePaidHint', 'salePaidNone');
@@ -3031,7 +3088,7 @@ function rebaseList(priceId, discId) {
 document.getElementById('saleDiscountInput')?.addEventListener('input',
   () => applyDiscount('salePriceInput', 'saleDiscountInput', 'saleQtyInput', 'salePaidInput', 'salePaidHint', 'salePaidNone'));
 document.getElementById('posDiscount')?.addEventListener('input',
-  () => { applyDiscount('posPrice', 'posDiscount', 'posQty', 'posPaid', 'posPaidHint', 'posPaidNone'); posSyncPaid(); });
+  () => { applyDiscount('posPrice', 'posDiscount', 'posQty', 'posPaid', 'posPaidHint', 'posPaidNone'); posSyncRedeem(); });
 document.getElementById('salePriceInput')?.addEventListener('input', () => rebaseList('salePriceInput', 'saleDiscountInput'));
 document.getElementById('posPrice')?.addEventListener('input', () => rebaseList('posPrice', 'posDiscount'));
 
@@ -3731,12 +3788,17 @@ function posSelectItem(id) {
   document.getElementById('posSaleFields').style.display = '';
   document.getElementById('posSaleSection').style.display = '';
   document.getElementById('posReceiptPanel').style.display = 'none';
+  posSyncRedeem();
 }
 
 function posReset() {
   posItemId = ''; posPayMethod = 'mpesa'; posCart = [];
   renderPosCart();
-  ['posItemSearch', 'posBuyerName', 'posBuyerPhone', 'posPaid', 'posNotes', 'posDiscount'].forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
+  ['posItemSearch', 'posBuyerName', 'posBuyerPhone', 'posPaid', 'posNotes', 'posDiscount', 'posRedeemPoints'].forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
+  const redeemBox = document.getElementById('posRedeemBox');
+  if (redeemBox) redeemBox.style.display = 'none';
+  const redeemApply = document.getElementById('posRedeemApply');
+  if (redeemApply) redeemApply.checked = false;
   document.getElementById('posItemResults').style.display = 'none';
   document.getElementById('posChosen').style.display = 'none';
   document.getElementById('posSaleFields').style.display = 'none';
@@ -3807,21 +3869,131 @@ function posAddLine() {
   document.getElementById('posSaleFields').style.display = 'none';
   document.getElementById('posDiscount').value = '';
   document.getElementById('posSaleSection').style.display = '';
-  posSyncPaid();
+  posSyncRedeem();
   showToast('Added to the sale.');
 }
 
+// ---- Points as money off, right at the till --------------------------------
+// The customer in the phone box, but ONLY when they have enough points to spend.
+// Returns { c, st, conf } or null.
+function posRedeemClient() {
+  if (typeof LOYALTY_ENABLED === 'undefined' || !LOYALTY_ENABLED) return null;
+  const el = document.getElementById('posBuyerPhone');
+  if (!el) return null;
+  const key = phoneKey(el.value);
+  if (key.length < 9) return null;
+  const conf = loyaltyConf();
+  if (!conf.enabled) return null;
+  const c = clientsLedger().find(x => x.phone === key);
+  if (!c) return null;
+  const st = loyaltyStatus(c, conf);
+  if (st.available < conf.threshold) return null;
+  return { c, st, conf };
+}
+
+// Turn the typed points into money off, clamped to what they actually have and
+// to the size of the bill (never burn points on nothing).
+function posRedeemPlan(total) {
+  const found = posRedeemClient();
+  const el = document.getElementById('posRedeemPoints');
+  const raw = ((el && el.value) || '').trim();
+  const none = { pts: 0, ksh: 0, capped: false, below: false, found, label: '' };
+  if (!found) return none;
+  // Fixed rewards (money off, percent off, free item) are one tick box, not a
+  // points number. Ticking it spends exactly the threshold.
+  if (found.conf.rewardType !== 'points') {
+    const apply = document.getElementById('posRedeemApply');
+    if (!apply || !apply.checked) return none;
+    const offer = rewardOnBill(found.conf, total);
+    return { pts: offer.pts, ksh: offer.ksh, capped: false, below: false, found, label: offer.label };
+  }
+  if (raw === '') return none;
+  let pts = Math.floor(Math.max(0, parseInt(raw, 10) || 0));
+  if (pts <= 0) return none;
+  pts = Math.min(pts, found.st.available);
+  const below = pts < found.conf.threshold; // too few to redeem at all
+  let ksh = pts * found.conf.redeemValue;
+  let capped = false;
+  if (ksh > total) { ksh = total; capped = true; pts = Math.ceil(ksh / found.conf.redeemValue); }
+  return { pts, ksh, capped, below, found, label: `${fmtKsh(ksh)} off` };
+}
+
+// Show/hide the redeem box as she types the customer's phone, and keep the hint
+// under it honest about what the points are doing to this bill.
+function posSyncRedeem() {
+  const box = document.getElementById('posRedeemBox');
+  const input = document.getElementById('posRedeemPoints');
+  const who = document.getElementById('posRedeemWho');
+  const hint = document.getElementById('posRedeemHint');
+  if (!box || !input) return;
+  const found = posRedeemClient();
+  const applyRow = document.getElementById('posRedeemApplyRow');
+  const applyBox = document.getElementById('posRedeemApply');
+  if (!found) {
+    box.style.display = 'none'; input.value = '';
+    if (applyBox) applyBox.checked = false;
+    if (hint) hint.textContent = '';
+    posSyncPaid(); return;
+  }
+  box.style.display = '';
+  const first = (found.c.name || 'This customer').split(' ')[0];
+  const pending = posCurrentLine();
+  const total = posCart.reduce((s, l) => s + l.price * l.qty, 0) + (pending ? pending.price * pending.qty : 0);
+  const fixed = found.conf.rewardType !== 'points';
+  input.style.display = fixed ? 'none' : '';
+  if (applyRow) applyRow.style.display = fixed ? 'flex' : 'none';
+  if (fixed) {
+    input.value = '';
+    const offer = rewardOnBill(found.conf, total);
+    if (who) who.textContent = `⭐ ${first} has ${found.st.available} ${found.st.unit}.`;
+    const txt = document.getElementById('posRedeemApplyText');
+    const what = found.conf.rewardType === 'item' ? found.conf.rewardLabel : offer.label;
+    if (txt) txt.textContent = `Apply reward: ${what} (uses ${found.conf.threshold} ${found.st.unit})`;
+    if (hint) {
+      if (!applyBox || !applyBox.checked) hint.textContent = `Leave it unticked to save the ${found.st.unit} for later.`;
+      else if (found.conf.rewardType === 'item') hint.textContent = `${found.conf.threshold} ${found.st.unit} used. No money off, hand over the reward yourself.`;
+      else hint.textContent = `${fmtKsh(offer.ksh)} off this bill, using ${found.conf.threshold} ${found.st.unit}.`;
+    }
+    posSyncPaid();
+    return;
+  }
+  if (who) who.textContent = `⭐ ${first} has ${found.st.available} ${found.st.unit}, worth ${fmtKsh(found.st.available * found.conf.redeemValue)}. Redeem how many?`;
+  const plan = posRedeemPlan(total);
+  if (hint) {
+    if (plan.below) hint.textContent = `You need at least ${found.conf.threshold} ${found.st.unit} to redeem.`;
+    else if (plan.capped) hint.textContent = `That covers the whole bill, only ${plan.pts} ${found.st.unit} needed.`;
+    else if (plan.pts > 0) hint.textContent = `${plan.pts} ${found.st.unit} = ${fmtKsh(plan.ksh)} off.`;
+    else hint.textContent = `${found.conf.threshold} points = ${fmtKsh(found.conf.threshold * found.conf.redeemValue)} off. Leave blank to save them for later.`;
+  }
+  posSyncPaid();
+}
+
 // POS paid-balance hint, cart-aware: total = cart lines + the pending line editor.
+// Points redeemed count as money ALREADY PAID, so they never lower the total (a
+// lower total would book a phantom debt) and never leave a balance owing.
 function posSyncPaid() {
   const paidEl = document.getElementById('posPaid');
   const hintEl = document.getElementById('posPaidHint');
   if (!paidEl || !hintEl) return;
   const pending = posCurrentLine();
   const total = posCart.reduce((s, l) => s + l.price * l.qty, 0) + (pending ? pending.price * pending.qty : 0);
+  const plan = posRedeemPlan(total);
+  const redeemKsh = plan.ksh;
   const raw = (paidEl.value || '').trim();
-  if (raw === '') { hintEl.style.display = 'none'; }
+  const cash = raw === '' ? Math.max(0, total - redeemKsh) : Math.max(0, parseInt(raw, 10) || 0);
+  const amountPaid = Math.min(total, cash + redeemKsh);
+  const bal = Math.max(0, total - amountPaid);
+  if (plan.pts > 0) {
+    hintEl.style.display = '';
+    const conf = plan.found.conf;
+    let mid;
+    if (conf.rewardType === 'points') mid = `Points cover ${fmtKsh(redeemKsh)}.`;
+    else if (conf.rewardType === 'item') mid = `Reward: ${conf.rewardLabel}.`;
+    else mid = `Reward covers ${fmtKsh(redeemKsh)}.`;
+    hintEl.textContent = `Bill ${fmtKsh(total)}. ${mid} Cash due ${fmtKsh(Math.max(0, total - redeemKsh))}.`
+      + (bal > 0 ? ` Balance owing: ${fmtKsh(bal)}.` : '');
+  } else if (raw === '') { hintEl.style.display = 'none'; }
   else {
-    const bal = total - Math.min(total, Math.max(0, parseInt(raw, 10) || 0));
     hintEl.style.display = bal > 0 ? '' : 'none';
     if (bal > 0) hintEl.textContent = `Balance owing: ${fmtKsh(bal)}`;
   }
@@ -3853,6 +4025,14 @@ function posLoyaltyLine(s) {
   return `You have ${st.available} ${st.unit}. ${conf.threshold - st.progress} more and you get ${conf.rewardLabel}.`;
 }
 
+// One line telling the customer what their reward was on this sale. Works for
+// every reward type, including a free item where no money came off.
+function posRewardUsedLine(s) {
+  if (!s || !(Number(s.redeemedPoints) > 0)) return '';
+  const what = s.redeemedLabel || `${fmtKsh(s.redeemedKsh || 0)} off`;
+  return `Reward used: ${what} (${s.redeemedPoints} points).`;
+}
+
 function posReceiptText(s) {
   const lines = [`*Purple Bear* receipt`];
   (s.lines || []).forEach(l => {
@@ -3862,6 +4042,8 @@ function posReceiptText(s) {
   lines.push(`Total: ${fmtKsh(s.total)}. Paid by ${s.paymentMethod === 'mpesa' ? 'M-Pesa' : 'Cash'}.`);
   const disc = posReceiptDiscount(s);
   if (disc > 0) lines.push(`Discount: ${fmtKsh(disc)} off (was ${fmtKsh(s.total + disc)}).`);
+  const rewardUsed = posRewardUsedLine(s);
+  if (rewardUsed) lines.push(rewardUsed);
   if (s.balance > 0) lines.push(`Paid now: ${fmtKsh(s.paid)}. Balance owing: ${fmtKsh(s.balance)}.`);
   const pts = posLoyaltyLine(s);
   if (pts) lines.push(pts);
@@ -3881,11 +4063,13 @@ function showPosReceipt(s) {
   }).join('<br>');
   const disc = posReceiptDiscount(s);
   const discLine = disc > 0 ? `<br><span style="color:#1a7a3a;">Discount ${fmtKsh(disc)} off (was ${fmtKsh(s.total + disc)})</span>` : '';
+  const rewardUsed = posRewardUsedLine(s);
+  const redLine = rewardUsed ? `<br><span style="color:var(--gold);">${escapeHtml(rewardUsed)}</span>` : '';
   const balLine = s.balance > 0 ? `<br><span class="owed-amount">Paid ${fmtKsh(s.paid)} · still owes ${fmtKsh(s.balance)}</span>` : '';
   const pts = posLoyaltyLine(s);
   const ptsLine = pts ? `<br><span style="color:var(--gold);">⭐ ${escapeHtml(pts)}</span>` : '';
   document.getElementById('posReceiptSummary').innerHTML =
-    `${itemsHtml}<br><strong>Total ${fmtKsh(s.total)}</strong> · paid by ${pay}${discLine}${balLine}${ptsLine}`;
+    `${itemsHtml}<br><strong>Total ${fmtKsh(s.total)}</strong> · paid by ${pay}${discLine}${redLine}${balLine}${ptsLine}`;
   const wa = document.getElementById('posWaReceiptBtn');
   if (s.buyerPhone && s.buyerPhone.replace(/[^0-9]/g, '').length >= 9) {
     wa.href = `https://wa.me/${posWaPhone(s.buyerPhone)}?text=${encodeURIComponent(posReceiptText(s))}`;
@@ -3935,6 +4119,7 @@ function posPrintReceipt() {
       <div class="rcpt-row rcpt-total"><span>TOTAL</span><span>${fmtKsh(total)}</span></div>
       ${s.buyerName ? `<div class="rcpt-row"><span>Customer</span><span>${escapeHtml(s.buyerName)}</span></div>` : ''}
       <div class="rcpt-row"><span>Paid by</span><span>${s.paymentMethod === 'mpesa' ? 'M-Pesa' : 'Cash'}</span></div>
+      ${Number(s.redeemedPoints) > 0 ? `<div class="rcpt-row"><span>Reward used (${s.redeemedPoints} pts)</span><span>${s.redeemedKsh > 0 ? '-' + fmtKsh(s.redeemedKsh) : escapeHtml(s.redeemedLabel || 'free')}</span></div>` : ''}
       ${s.balance > 0 ? `<div class="rcpt-row"><span>Paid now</span><span>${fmtKsh(s.paid)}</span></div><div class="rcpt-row rcpt-total"><span>BALANCE OWING</span><span>${fmtKsh(s.balance)}</span></div>` : ''}
       <div class="rcpt-date">${d.toLocaleString('en-GB')}</div>
       ${posLoyaltyLine(s) ? `<div class="rcpt-foot">${escapeHtml(posLoyaltyLine(s))}</div>` : ''}
@@ -3956,9 +4141,19 @@ async function recordPosSale() {
   const phone = document.getElementById('posBuyerPhone').value.trim().replace(/[^0-9+]/g, '');
   const note = document.getElementById('posNotes').value.trim();
   const soldAt = soldAtFromDateInput(document.getElementById('posDate').value);
+  // Loyalty points taken off this bill. They are MONEY ALREADY PAID, not a price
+  // cut: total stays the real revenue, and the points ride along with the cash in
+  // amountPaid. Cutting the total instead would leave a phantom debt.
+  const plan = posRedeemPlan(total);
+  if (plan.below) { showToast(`You need at least ${plan.found.conf.threshold} points to redeem.`); return; }
+  const redeemPts = plan.pts, redeemKsh = plan.ksh;
+  // Human wording for the log and the receipt: "Ksh 500 off", "10% off (Ksh 700)",
+  // or her own free-text label for a free item / free delivery.
+  const redeemLabel = redeemPts > 0 ? (plan.label || `${fmtKsh(redeemKsh)} off`) : '';
   const paidRaw = (document.getElementById('posPaid').value || '').trim();
-  const amountPaid = paidRaw === '' ? total : Math.min(total, Math.max(0, parseInt(paidRaw, 10) || 0));
-  const balance = total - amountPaid;
+  const cashPaid = paidRaw === '' ? Math.max(0, total - redeemKsh) : Math.max(0, parseInt(paidRaw, 10) || 0);
+  const amountPaid = Math.min(total, cashPaid + redeemKsh);
+  const balance = Math.max(0, total - amountPaid);
   if (balance > 0 && phone.replace(/[^0-9]/g, '').length < 9) {
     if (!await confirmAction("No phone saved for this customer. Without a phone you can't track or collect this balance under their name. Save the sale anyway?", 'Save anyway')) return;
   }
@@ -3994,8 +4189,15 @@ async function recordPosSale() {
         if (existing) { if (name) existing.name = name; }
         else clients.push({ id: 'c_' + Date.now(), name: name || '', phone, note, createdAt: soldAt });
       }
+      // Log the points spent, same shape the Loyalty-tab reward uses. `cost` is
+      // what loyaltyStatus subtracts, so the balance drops the moment this saves.
+      if (redeemPts > 0) {
+        if (!settings.loyalty || typeof settings.loyalty !== 'object') settings.loyalty = {};
+        if (!Array.isArray(settings.loyalty.redemptions)) settings.loyalty.redemptions = [];
+        settings.loyalty.redemptions.push({ phone, name: name || (plan.found && plan.found.c.name) || '', at: soldAt, mode: plan.found.conf.mode, cost: redeemPts, rewardType: plan.found.conf.rewardType, rewardLabel: redeemLabel, amount: redeemKsh });
+      }
     });
-    lastPosSale = { lines: recLines, total, paid: amountPaid, balance, paymentMethod: posPayMethod, buyerName: name, buyerPhone: phone, soldAt };
+    lastPosSale = { lines: recLines, total, paid: amountPaid, balance, paymentMethod: posPayMethod, buyerName: name, buyerPhone: phone, soldAt, redeemedPoints: redeemPts, redeemedKsh: redeemKsh, redeemedLabel: redeemLabel };
     posCart = [];
     renderList(); renderDashboard(); renderInventory();
     if (typeof renderClients === 'function') renderClients();
@@ -4004,7 +4206,8 @@ async function recordPosSale() {
     posReset();
     showPosReceipt(lastPosSale);
     const n = recLines.length;
-    showToast(balance > 0 ? `Sold ${n} item(s) · ${fmtKsh(amountPaid)} paid, ${fmtKsh(balance)} owed` : `Sold ${n} item(s) · ${fmtKsh(total)}`);
+    const ptsNote = redeemPts > 0 ? ` · ${redeemPts} points used (${redeemLabel})` : '';
+    showToast((balance > 0 ? `Sold ${n} item(s) · ${fmtKsh(amountPaid)} paid, ${fmtKsh(balance)} owed` : `Sold ${n} item(s) · ${fmtKsh(total)}`) + ptsNote);
   } catch (e) { showToast('Error: ' + e.message); }
   finally { btn.disabled = false; }
 }
@@ -4043,7 +4246,7 @@ function buildReceiptCanvas(s, logoImg) {
     if (cur) ptsRows.push(cur);
   }
   const seg = { top: 34, logo: logoImg ? 132 : 88, caption: 30, addr: 46, div1: 26,
-    items: lineCount * 48 + 16, div2: 26, total: 52, cust: s.buyerName ? 34 : 0, paid: 34, bal: hasBal ? 70 : 0, date: 38,
+    items: lineCount * 48 + 16, div2: 26, total: 52, cust: s.buyerName ? 34 : 0, paid: 34, redeem: Number(s.redeemedPoints) > 0 ? 34 : 0, bal: hasBal ? 70 : 0, date: 38,
     loyalty: ptsRows.length ? ptsRows.length * 19 + 12 : 0, foot: 60, bottom: 30 };
   const H = Object.values(seg).reduce((a, b) => a + b, 0);
   const c = document.createElement('canvas');
@@ -4104,6 +4307,13 @@ function buildReceiptCanvas(s, logoImg) {
   x.textAlign = 'left'; x.fillStyle = '#4a3528'; x.font = '15px Arial'; x.fillText('Paid by', M, y);
   x.textAlign = 'right'; x.fillStyle = '#2a1c0f'; x.font = '600 15px Arial';
   x.fillText(s.paymentMethod === 'mpesa' ? 'M-Pesa' : 'Cash', W - M, y); y += seg.paid;
+
+  if (Number(s.redeemedPoints) > 0) {
+    x.textAlign = 'left'; x.fillStyle = '#4a3528'; x.font = '15px Arial';
+    x.fillText(`Reward used (${s.redeemedPoints} pts)`, M, y);
+    x.textAlign = 'right'; x.fillStyle = '#7A1FA0'; x.font = '600 15px Arial';
+    x.fillText(s.redeemedKsh > 0 ? '-' + fmtKsh(s.redeemedKsh) : trunc(s.redeemedLabel || 'free', 24), W - M, y); y += seg.redeem;
+  }
 
   if (hasBal) {
     x.textAlign = 'left'; x.fillStyle = '#4a3528'; x.font = '15px Arial'; x.fillText('Paid now', M, y);
@@ -4173,7 +4383,7 @@ document.getElementById('posCartList')?.addEventListener('click', e => {
   const x = e.target.closest('.pos-cart-x');
   if (!x) return;
   const idx = parseInt(x.dataset.cartIdx, 10);
-  if (!isNaN(idx)) { posCart.splice(idx, 1); renderPosCart(); posSyncPaid(); }
+  if (!isNaN(idx)) { posCart.splice(idx, 1); renderPosCart(); posSyncRedeem(); }
 });
 document.getElementById('posItemResults')?.addEventListener('click', e => {
   const opt = e.target.closest('.client-item-opt');
@@ -4188,6 +4398,9 @@ document.getElementById('posPay')?.addEventListener('click', e => {
 document.getElementById('posAddCustomerToggle')?.addEventListener('click', () => {
   const f = document.getElementById('posCustomerFields'); f.style.display = f.style.display === 'none' ? '' : 'none';
 });
+document.getElementById('posBuyerPhone')?.addEventListener('input', () => posSyncRedeem());
+document.getElementById('posRedeemPoints')?.addEventListener('input', () => posSyncRedeem());
+document.getElementById('posRedeemApply')?.addEventListener('change', () => posSyncRedeem());
 document.getElementById('posRecordBtn')?.addEventListener('click', recordPosSale);
 document.getElementById('posCancelBtn')?.addEventListener('click', posReset);
 document.getElementById('posNewSaleBtn')?.addEventListener('click', posReset);
