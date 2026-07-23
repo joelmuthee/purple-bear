@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#5b2a86">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20260723reward">
+<link rel="stylesheet" href="styles.css?v=20260723rate">
 <script src="https://www.google.com/recaptcha/enterprise.js?render=6LeDBFwpAAAAAJe8ux9-imrqZ2ueRsEtdiWoDDpX" async defer></script>
 </head>
 <body style="background:var(--bg);">
@@ -343,9 +343,9 @@
           <input id="loyaltyThreshold" type="number" min="1" step="1" placeholder="50">
         </div>
         <div class="field" id="loyaltyPpkField">
-          <label>Points per Ksh spent</label>
-          <input id="loyaltyPpk" type="number" min="0" step="0.001" placeholder="0.01">
-          <small style="color:#999;">0.01 = 1 point per Ksh 100 spent</small>
+          <label>Ksh a customer spends to earn 1 point</label>
+          <input id="loyaltyKshPerPoint" type="number" min="1" step="10" placeholder="100">
+          <small style="color:#999;">Put 100 to give 1 point for every Ksh 100 they spend. A smaller number gives points away faster.</small>
         </div>
         <div class="field">
           <label>Reward type</label>
@@ -377,6 +377,7 @@
           <small style="color:#999;">The wording customers see on receipts and WhatsApp messages</small>
         </div>
       </div>
+      <p id="loyaltySummary" class="loyalty-summary"></p>
       <div class="admin-actions">
         <button class="btn-admin gold" id="loyaltySaveBtn">Save loyalty settings</button>
       </div>
@@ -996,6 +997,6 @@
   </div>
 </div>
 
-<script src="admin.js?v=20260723reward"></script>
+<script src="admin.js?v=20260723rate2"></script>
 </body>
 </html>

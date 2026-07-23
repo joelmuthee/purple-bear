@@ -1672,3 +1672,7 @@ summary.dash-summary:hover .dash-title { color: var(--gold-deep); }
   .loyalty-row-actions { flex-wrap: wrap; }
   .loyalty-row-actions .btn-admin { flex: 1; }
 }
+
+/* Loyalty settings read-out — spells out the effective giveaway rate. */
+.loyalty-summary { font-size: 13px; line-height: 1.5; color: #6b5b00; background: #fff7d6; border: 1px solid #f0e2a0; border-radius: 8px; padding: 9px 12px; margin: 10px 0 0; }
+.loyalty-summary.loyalty-summary-warn { color: #8a2b00; background: #ffece2; border-color: #f5c3a8; }

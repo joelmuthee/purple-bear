@@ -2525,6 +2525,37 @@ function syncLoyaltyModeUI(mode) {
   if (pct) pct.style.display = type === 'percent' ? '' : 'none';
   if (lbl) lbl.textContent = mode === 'spend' ? 'Points needed for a reward' : 'Stamps needed for a reward';
 }
+// Plain-language read-out of what the current settings actually cost the shop.
+// The rate is easy to set by accident (1 point per Ksh 100 at Ksh 10 a point is
+// 10% back), so spell it out and warn when it gets expensive.
+function renderLoyaltySummary(conf) {
+  const el = document.getElementById('loyaltySummary');
+  if (!el) return;
+  if (!conf.enabled) { el.textContent = 'Loyalty is switched off. Customers are not collecting anything right now.'; return; }
+  if (conf.mode !== 'spend') {
+    el.textContent = `Right now: 1 stamp per purchase. ${conf.threshold} stamps and the customer gets ${conf.rewardLabel}.`;
+    return;
+  }
+  const kshPerPoint = conf.pointsPerKsh > 0 ? Math.round(1 / conf.pointsPerKsh) : 100;
+  const spendForReward = conf.threshold * kshPerPoint;
+  const earn = `Right now: every ${fmtKsh(kshPerPoint)} spent earns 1 point.`;
+  let give = '', pct = 0;
+  if (conf.rewardType === 'points') {
+    pct = (conf.redeemValue / kshPerPoint) * 100;
+    give = ` Each point takes ${fmtKsh(conf.redeemValue)} off a bill, so they get back about ${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}% of what they spend.`;
+  } else if (conf.rewardType === 'amount') {
+    pct = (conf.rewardAmount / spendForReward) * 100;
+    give = ` At ${conf.threshold} points (${fmtKsh(spendForReward)} spent) they get ${fmtKsh(conf.rewardAmount)} off, so about ${pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}% back.`;
+  } else if (conf.rewardType === 'percent') {
+    pct = conf.rewardPercent;
+    give = ` At ${conf.threshold} points (${fmtKsh(spendForReward)} spent) they get ${conf.rewardPercent}% off one purchase.`;
+  } else {
+    give = ` At ${conf.threshold} points (${fmtKsh(spendForReward)} spent) they get ${conf.rewardLabel}.`;
+  }
+  const warn = pct >= 15 ? ' ⚠ That is a big giveaway, check you are happy with it.' : '';
+  el.textContent = earn + give + warn;
+  el.classList.toggle('loyalty-summary-warn', pct >= 15);
+}
 function renderLoyalty() {
   if (!LOYALTY_ENABLED) return;
   const conf = loyaltyConf();
@@ -2534,7 +2565,11 @@ function renderLoyalty() {
   const modeEl = document.getElementById('loyaltyMode');
   if (modeEl && document.activeElement !== modeEl) modeEl.value = conf.mode;
   setVal('loyaltyThreshold', conf.threshold);
-  setVal('loyaltyPpk', conf.pointsPerKsh);
+  // Shown to the owner as "Ksh spent to earn 1 point" (e.g. 100), not the raw
+  // 0.01 rate — a shop owner reading "points per Ksh" could type 1 and give away
+  // 100x too much. Converted back on save.
+  setVal('loyaltyKshPerPoint', conf.pointsPerKsh > 0 ? Math.round(1 / conf.pointsPerKsh) : 100);
+  renderLoyaltySummary(conf);
   setVal('loyaltyRedeemValue', conf.redeemValue);
   const typeEl = document.getElementById('loyaltyRewardType');
   if (typeEl && document.activeElement !== typeEl) typeEl.value = conf.rewardType;
@@ -2581,7 +2616,9 @@ function renderLoyalty() {
 async function saveLoyaltyConfig() {
   const mode = document.getElementById('loyaltyMode').value === 'stamps' ? 'stamps' : 'spend';
   const threshold = parseInt(document.getElementById('loyaltyThreshold').value, 10);
-  const ppk = parseFloat(document.getElementById('loyaltyPpk').value);
+  // Owner types "Ksh spent to earn 1 point" (e.g. 100); store the rate (0.01).
+  const kshPerPoint = parseFloat((document.getElementById('loyaltyKshPerPoint') || {}).value);
+  const ppk = kshPerPoint > 0 ? (1 / kshPerPoint) : NaN;
   const rvRaw = parseFloat((document.getElementById('loyaltyRedeemValue') || {}).value);
   const reward = document.getElementById('loyaltyReward').value.trim();
   const enabled = document.getElementById('loyaltyEnabled').checked;
