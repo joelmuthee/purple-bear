@@ -80,6 +80,13 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     const btn = document.getElementById('wishlistBtn');
     if (btn) btn.querySelector('.wl-count').textContent = wishlist.size || '';
     btn?.classList.toggle('has-items', wishlist.size > 0);
+    const bar = document.getElementById('wlBar');
+    if (bar) {
+      const n = wishlist.size;
+      bar.querySelector('.wl-bar-n').textContent = n;
+      bar.querySelector('.wl-bar-count').childNodes[1].textContent = n === 1 ? ' pair picked' : ' pairs picked';
+      bar.hidden = n === 0;
+    }
   }
 
   // Per-item deterministic base count (7..20) + 1 if the visitor wishlisted it.
@@ -831,6 +838,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     document.body.style.overflow = '';
   }
   document.getElementById('wishlistBtn')?.addEventListener('click', e => { e.preventDefault(); openWishlist(); });
+  document.getElementById('wlBar')?.addEventListener('click', () => openWishlist());
   document.getElementById('wishlistClose')?.addEventListener('click', closeWishlist);
   document.getElementById('wishlistModal')?.addEventListener('click', e => {
     if (e.target.id === 'wishlistModal') return closeWishlist();
@@ -842,8 +850,13 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     const items_saved = items.filter(i => wishlist.has(i.id));
     if (!items_saved.length) return;
     const phone = settings.whatsappNumber || '254725672399';
-    const lines = items_saved.map((i, idx) => `${idx + 1}. *${i.name}*${i.price > 0 ? ' (' + fmtPrice(i.price) + ')' : ''}`);
-    const msg = `Hi Purple Bear! I'd like to enquire about these saved items:\n\n${lines.join('\n')}\n\nAre they available?`;
+    // Each item carries its /p/<id> share link so Purple Bear can open the exact item.
+    const lines = items_saved.map((i, idx) => {
+      const price = i.price > 0 ? ' (' + fmtPrice(i.price) + ')' : '';
+      const link = i.id ? `\n${API_BASE}/p/${encodeURIComponent(i.id)}` : '';
+      return `${idx + 1}. *${i.name}*${price}${link}`;
+    });
+    const msg = `Hi Purple Bear! I'd like to enquire about these saved items:\n\n${lines.join('\n\n')}\n\nAre they available?`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   });
 
