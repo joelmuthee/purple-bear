@@ -15,7 +15,8 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   let items = [];
   let settings = {};
   let suspended = false;
-  let suspendMode = 'prospect';
+  let suspendLevel = 'full';     // 'full' = site offline | 'admin' = site stays live
+  let suspendMode = 'prospect';  // 'prospect' = one-off pitch | 'client' = neutral copy
   let currentAvail = 'all';
   let currentGender = 'all';
   let currentCat = 'all';
@@ -124,8 +125,9 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
       const json = await res.json();
       items = json.bags || [];
       settings = json.settings || {};
-      suspended = !!json.suspended;
+      suspendLevel = json.suspendLevel || 'full';
       suspendMode = json.suspend_mode || 'prospect';
+      suspended = !!json.suspended && suspendLevel !== 'admin';
     } catch (e) {
       try {
         const res = await fetch('data.json');

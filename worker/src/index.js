@@ -34,9 +34,26 @@ const isMaster = (req, env) => {
 // store can be maintained while suspended. Returns a 403 Response when the caller
 // is blocked, or null when the write may proceed. Authoritative gate: the admin
 // UI also blocks these, but this is the real lock the owner can't bypass.
+//
+// Two orthogonal KV keys drive the billing pause. One says which bucket the
+// shop belongs to, the other is how hard we are squeezing.
+//
+//   suspended    PAUSE LEVEL — "0"/absent = active
+//                  "1"     FULL pause: public storefront goes offline.
+//                  "admin" PARTIAL pause: storefront stays 100% live, buyers see
+//                          nothing, only the owner's admin is frozen.
+//   suspend_mode WHO the shop is (sticky, survives a restore so it only has to be
+//                set once) — "prospect" (default) or "client". Controls the
+//                OVERLAY COPY on a full pause: a prospect gets the one-off
+//                win-back pitch, a client gets neutral "temporarily offline"
+//                wording with no mention of billing.
+//
+// Admin WRITES are frozen at BOTH levels — that is the actual leverage. The level
+// only decides whether her buyers are affected.
+const SUSPEND_LEVELS = ["1", "admin"];
 const suspendBlock = async (req, env) => {
   if (isMaster(req, env)) return null;
-  if ((await env.BAGS.get("suspended")) === "1") {
+  if (SUSPEND_LEVELS.includes(await env.BAGS.get("suspended"))) {
     return json({ error: "account suspended; contact billing to restore the store" }, 403);
   }
   return null;
@@ -687,7 +704,7 @@ const AUTOSYNC_MAX_ITEMS = 20;
 
 async function runIgAutoSync(env) {
   if (!IG_AUTOSYNC_USER_ID) return { ok: false, skipped: "ig disabled" }; // owner: manual upload only
-  if ((await env.BAGS.get("suspended")) === "1") return { ok: false, skipped: "suspended" };
+  if (SUSPEND_LEVELS.includes(await env.BAGS.get("suspended"))) return { ok: false, skipped: "suspended" };
   let cfg;
   try { cfg = JSON.parse(await env.BAGS.get("autosync")) || {}; } catch { cfg = {}; }
   if (cfg.enabled === false) return { ok: false, skipped: "disabled" };
@@ -811,8 +828,13 @@ export default {
       const raw = await env.BAGS.get("data");
       const data = raw ? JSON.parse(raw) : { bags: [], settings: {} };
       // Billing kill-switch: stored in its own KV key so the owner's admin
-      // publishes (which only write "data") can never clear it.
-      data.suspended = (await env.BAGS.get("suspended")) === "1";
+      // publishes (which only write "data") can never clear it. `suspended` is
+      // true in BOTH paused states (so the admin write-locks either way);
+      // `suspendLevel` tells the PUBLIC site whether to go dark ("full") or stay
+      // live ("admin"). Null when active.
+      const _sus = await env.BAGS.get("suspended");
+      data.suspended = SUSPEND_LEVELS.includes(_sus);
+      data.suspendLevel = _sus === "admin" ? "admin" : (_sus === "1" ? "full" : null);
       // "client" (paid lapse) -> neutral offline page; "prospect" (default) -> win-back pitch.
       data.suspend_mode = (await env.BAGS.get("suspend_mode")) || "prospect";
       // PRIVACY: strip buyer PII (sales[].buyerName/buyerPhone/notes, soldTo) for
@@ -841,18 +863,26 @@ export default {
     }
 
     // Billing only: flip the suspend flag. Authed by MASTER_TOKEN (not the shop admin token).
+    // body.mode  ("client"|"prospect") — WHO the shop is. Stored in its own key
+    //   ONLY when present, so a bare {suspended:false} restore never wipes it.
+    // body.level ("admin"|"full") — how hard. "admin" keeps the storefront live
+    //   and freezes only the admin; default "full" takes the shop offline.
+    //   `mode:"admin"` is also accepted as a level for callers written against
+    //   the earlier shape.
     if (request.method === "POST" && path === "/api/suspend") {
       if (!isMaster(request, env)) return json({ error: "unauthorized" }, 401);
       let body;
       try { body = await request.json(); } catch { return json({ error: "invalid json" }, 400); }
-      const suspended = !!body.suspended;
-      await env.BAGS.put("suspended", suspended ? "1" : "0");
       // Remember which overlay to show. Only set on an explicit pause (mode present),
       // so a bare restore doesn't wipe it.
       if (body.mode === "client" || body.mode === "prospect") {
         await env.BAGS.put("suspend_mode", body.mode);
       }
-      return json({ ok: true, suspended });
+      const suspended = !!body.suspended;
+      const adminOnly = body.level === "admin" || body.mode === "admin";
+      await env.BAGS.put("suspended", suspended ? (adminOnly ? "admin" : "1") : "0");
+      const mode = (await env.BAGS.get("suspend_mode")) || "prospect";
+      return json({ ok: true, suspended, level: suspended ? (adminOnly ? "admin" : "full") : null, mode });
     }
 
     // Public: serve images
