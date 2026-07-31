@@ -1008,8 +1008,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
         )
         : (
           '<h1 class="rk-head">This website is paused</h1>'
-          + '<p class="rk-body">Not ready for a monthly plan? You don\'t need one.</p>'
-          + '<p class="rk-offer">Now you can <b>own this website outright for a one-time Ksh 20,000</b>, no monthly fees. New stock you post on Instagram pulls straight into your website. Buyers can filter by category and size to find what they want fast, then order on WhatsApp.</p>'
+          + '<p class="rk-offer">Now you can <b>own this website outright for Ksh 20,000</b>. New stock you post on Instagram pulls straight into your website. Buyers can filter by category and size to find what they want fast, then order on WhatsApp.</p>'
           + '<a class="rk-ig" href="' + waLink + '" target="_blank" rel="noopener">' + WA_SVG + ' Bring my website back</a>'
         ))
     );
