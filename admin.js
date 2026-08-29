@@ -828,6 +828,9 @@ async function saveItem() {
     if (itemSalePrice >= price) { showToast('Sale price must be lower than the regular price.'); return; }
   }
 
+  // Product code — admin-only, optional, for stock taking.
+  const code = document.getElementById('codeInput').value.trim();
+
   // Buying price (cost) — admin-only, optional, never rejected. Blank/0 = not recorded.
   const costRaw = costInput.value.trim();
   const cost = costRaw === '' ? 0 : Math.max(0, parseInt(costRaw, 10) || 0);
@@ -884,6 +887,7 @@ async function saveItem() {
         if (imagePath) bag.image = imagePath;
         if (itemSalePrice) bag.salePrice = itemSalePrice; else delete bag.salePrice;
         if (cost) bag.cost = cost; else delete bag.cost;
+        if (code) bag.code = code; else delete bag.code;
       });
       showToast('Item updated and live!');
     } else {
@@ -895,6 +899,7 @@ async function saveItem() {
       if (stagedInstagramUrl) newBag.instagramUrl = stagedInstagramUrl;
       if (itemSalePrice) newBag.salePrice = itemSalePrice;
       if (cost) newBag.cost = cost;
+      if (code) newBag.code = code;
       await apiMutateAndPublish(() => { bags.unshift(newBag); });
       showToast('Item added and live!');
     }
@@ -1003,6 +1008,7 @@ function resetForm() {
   document.getElementById('priceInput').value = '';
   document.getElementById('itemSalePriceInput').value = '';
   costInput.value = '';
+  document.getElementById('codeInput').value = '';
   clearStockForm();
   imageInput.value = '';
   imagePreview.innerHTML = '';
@@ -1042,6 +1048,7 @@ function editItem(id) {
   document.getElementById('priceInput').value = bag.price;
   document.getElementById('itemSalePriceInput').value = bag.salePrice || '';
   costInput.value = bag.cost || '';
+  document.getElementById('codeInput').value = bag.code || '';
   setStockToForm(bag.stock || {});
   stagedImage = null;
   imagePreview.innerHTML = `<img src="${bag.image}" style="max-width:180px;border-radius:8px;">`;
@@ -1901,7 +1908,50 @@ let invFilter = 'attention'; // 'attention' | 'all'
 let invShowAll = false;       // false = cap at INV_PAGE_SIZE
 const INV_PAGE_SIZE = 15;
 
+// Stock taking, laid out the way Purity counts: one block per section (category),
+// each row = picture, code, name, units left, buying price, selling price.
+function renderStockTaking() {
+  const box = document.getElementById('stockTakeBody');
+  if (!box) return;
+  if (!bags.length) { box.innerHTML = '<p style="color:#999;">No items yet.</p>'; return; }
+  const groups = {};
+  bags.forEach(b => { const k = b.category || 'No section'; (groups[k] = groups[k] || []).push(b); });
+  let html = '';
+  let gUnits = 0, gCost = 0, gSell = 0;
+  Object.keys(groups).sort((a, b) => a.localeCompare(b)).forEach(cat => {
+    const rows = groups[cat].slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    let secUnits = 0, secCost = 0, secSell = 0;
+    const body = rows.map(b => {
+      const units = totalStock(b);
+      secUnits += units;
+      secCost += units * (b.cost || 0);
+      secSell += units * (b.price || 0);
+      const thumb = b.image
+        ? `<img src="${escapeHtml(b.image)}" alt="" loading="lazy" style="width:44px;height:44px;object-fit:cover;border-radius:8px;">`
+        : '<span style="font-size:22px;">🛍️</span>';
+      return `<tr${units === 0 ? ' style="opacity:0.55;"' : ''}>
+        <td style="width:52px;">${thumb}</td>
+        <td>${escapeHtml(b.name)}${b.code ? `<br><small style="color:#999;">Code: ${escapeHtml(b.code)}</small>` : ''}</td>
+        <td>${units}</td>
+        <td>${b.cost ? fmtKsh(b.cost) : '<span style="color:#bbb;">—</span>'}</td>
+        <td>${b.price ? fmtKsh(b.price) : '<span style="color:#bbb;">—</span>'}</td>
+      </tr>`;
+    }).join('');
+    gUnits += secUnits; gCost += secCost; gSell += secSell;
+    html += `<div class="section-divider">${escapeHtml(cat)} <span>${rows.length} item${rows.length === 1 ? '' : 's'} · ${secUnits} units</span></div>
+      <div class="inv-table-wrap"><table class="inv-table">
+        <thead><tr><th></th><th>Item</th><th>Left</th><th>Buying price</th><th>Selling price</th></tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr style="font-weight:600;"><td></td><td>Section total</td><td>${secUnits}</td><td>${fmtKsh(secCost)}</td><td>${fmtKsh(secSell)}</td></tr></tfoot>
+      </table></div>`;
+  });
+  html += `<div class="section-divider">Whole shop <span>${bags.length} items · ${gUnits} units</span></div>
+    <p style="font-size:14px;">Stock at buying price: <strong>${fmtKsh(gCost)}</strong> · at selling price: <strong>${fmtKsh(gSell)}</strong></p>`;
+  box.innerHTML = html;
+}
+
 function renderInventory() {
+  renderStockTaking();
   let totalItems = bags.length;
   let totalUnits = 0, totalValue = 0, lowStock = 0, outOfStock = 0;
 

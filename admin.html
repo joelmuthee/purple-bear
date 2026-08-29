@@ -46,6 +46,7 @@
     <a href="#posDash" class="admin-nav-pos">🛒 Sell in store</a>
     <a href="#salesDash">Sales</a>
     <a href="#invDash">Inventory</a>
+    <a href="#stockTakeDash">Stock taking</a>
     <a href="#broadcastDash">WhatsApp Marketing</a>
     <a href="#clientsDash" id="clientsNavLink">Clients <span class="admin-nav-count" id="navClientsCount"></span></a>
     <a href="#owedDash" id="owedNavLink">Owed <span class="admin-nav-count" id="navOwedCount"></span></a>
@@ -204,6 +205,13 @@
       </table>
     </div>
     <button class="btn-admin" id="invShowMore" style="display:none;width:100%;margin-top:14px;"></button>
+  </section>
+
+  <!-- ====== STOCK TAKING (sections, picture, code, buying + selling price) ====== -->
+  <section class="dash" id="stockTakeDash">
+    <h2 class="dash-title">Stock taking</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 16px;">Everything you have, section by section. Picture, code, how many are left, what you paid and what you sell at. Buying prices are private, only you see this page.</p>
+    <div id="stockTakeBody"></div>
   </section>
 
   <!-- ====== WHATSAPP BROADCAST ====== -->
@@ -495,6 +503,13 @@
             <option value="Slides">Slides</option>
             <option value="Loafers">Loafers</option>
           </optgroup>
+          <optgroup label="Kids' Clothes">
+            <option value="Dresses">Dresses</option>
+            <option value="Tops &amp; T-Shirts">Tops &amp; T-Shirts</option>
+            <option value="Trousers &amp; Shorts">Trousers &amp; Shorts</option>
+            <option value="Sets &amp; Outfits">Sets &amp; Outfits</option>
+            <option value="Jackets &amp; Sweaters">Jackets &amp; Sweaters</option>
+          </optgroup>
           <option value="__new__">+ Add new category…</option>
         </select>
         <input id="categoryNewInput" type="text" placeholder="Type the new category name" style="display:none;margin-top:8px;" />
@@ -528,6 +543,11 @@
     <div class="field">
       <label>Sale price (Ksh) <small style="font-weight:400;color:#999;">— optional. Leave blank for no sale. Must be below the price; the original shows struck-through with a red SALE tag.</small></label>
       <input id="itemSalePriceInput" type="number" min="0" step="50" placeholder="e.g. 4500">
+    </div>
+
+    <div class="field">
+      <label>Product code <small style="font-weight:400;color:#999;">- optional. Your own code for stock taking, e.g. PB-001. Never shown to buyers.</small></label>
+      <input id="codeInput" type="text" placeholder="e.g. PB-001" autocomplete="off">
     </div>
 
     <div class="field" id="costField">
@@ -585,6 +605,24 @@
           <div class="stock-entry-item"><span class="size-lbl">37</span><input type="number" min="0" step="1" data-size="37" class="stock-qty"></div>
           <div class="stock-entry-item"><span class="size-lbl">38</span><input type="number" min="0" step="1" data-size="38" class="stock-qty"></div>
           <div class="stock-entry-item"><span class="size-lbl">39</span><input type="number" min="0" step="1" data-size="39" class="stock-qty"></div>
+        </div>
+      </details>
+
+      <details class="stock-details" data-stock-group>
+        <summary class="stock-summary">Kids' clothes <small>(by age)</small><span class="stock-summary-count"></span></summary>
+        <div class="stock-entry-row" id="stockClothes">
+          <div class="stock-entry-item"><span class="size-lbl">0-3m</span><input type="number" min="0" step="1" data-size="0-3m" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">3-6m</span><input type="number" min="0" step="1" data-size="3-6m" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">6-12m</span><input type="number" min="0" step="1" data-size="6-12m" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">1-2y</span><input type="number" min="0" step="1" data-size="1-2y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">2-3y</span><input type="number" min="0" step="1" data-size="2-3y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">3-4y</span><input type="number" min="0" step="1" data-size="3-4y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">4-5y</span><input type="number" min="0" step="1" data-size="4-5y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">5-6y</span><input type="number" min="0" step="1" data-size="5-6y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">7-8y</span><input type="number" min="0" step="1" data-size="7-8y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">9-10y</span><input type="number" min="0" step="1" data-size="9-10y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">11-12y</span><input type="number" min="0" step="1" data-size="11-12y" class="stock-qty"></div>
+          <div class="stock-entry-item"><span class="size-lbl">13-14y</span><input type="number" min="0" step="1" data-size="13-14y" class="stock-qty"></div>
         </div>
       </details>
 
