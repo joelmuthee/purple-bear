@@ -1931,7 +1931,7 @@ function renderStockTaking() {
         : '<span style="font-size:22px;">🛍️</span>';
       return `<tr${units === 0 ? ' style="opacity:0.55;"' : ''}>
         <td style="width:52px;">${thumb}</td>
-        <td>${escapeHtml(b.name)}${b.code ? `<br><small style="color:#999;">Code: ${escapeHtml(b.code)}</small>` : ''}</td>
+        <td>${escapeHtml(b.name)}<small style="color:#999;"> · ${b.gender === 'boy' ? 'Boys' : b.gender === 'girl' ? 'Girls' : 'Boys & Girls'}</small>${b.code ? `<br><small style="color:#999;">Code: ${escapeHtml(b.code)}</small>` : ''}</td>
         <td>${units}</td>
         <td>${b.cost ? fmtKsh(b.cost) : '<span style="color:#bbb;">—</span>'}</td>
         <td>${b.price ? fmtKsh(b.price) : '<span style="color:#bbb;">—</span>'}</td>
