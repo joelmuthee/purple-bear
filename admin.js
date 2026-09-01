@@ -663,7 +663,7 @@ function buildColorStockGrid(existing) {
   colors.forEach(col => {
     html += `<tr><td class="cstk-color">${escapeHtml(col)}</td>` + sizes.map(s => {
       const v = (existing && existing[col] && existing[col][s] > 0) ? existing[col][s] : '';
-      return `<td><input type="number" min="0" step="1" class="cstk-qty" data-color="${escapeHtml(col)}" data-size="${escapeHtml(s)}" value="${v}"></td>`;
+      return `<td><input type="text" inputmode="numeric" pattern="[0-9]*" class="cstk-qty" data-color="${escapeHtml(col)}" data-size="${escapeHtml(s)}" value="${v}"></td>`;
     }).join('') + '</tr>';
   });
   grid.innerHTML = html + '</tbody></table>';
@@ -724,7 +724,7 @@ function addCustomSizeRow(name = '', qty = '') {
   row.className = 'custom-size-row';
   row.innerHTML = `
     <input type="text" class="custom-size-name" placeholder="Size name (e.g. EU 42, Free Size)" value="${escapeHtml(name)}">
-    <input type="number" min="0" step="1" class="custom-size-qty" placeholder="Qty" value="${qty || ''}">
+    <input type="text" inputmode="numeric" pattern="[0-9]*" class="custom-size-qty" placeholder="Qty" value="${qty || ''}">
     <button type="button" class="btn-admin danger custom-size-remove" aria-label="Remove">×</button>
   `;
   row.querySelector('.custom-size-remove').addEventListener('click', () => { row.remove(); refreshStockGroups(false); });

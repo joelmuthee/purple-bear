@@ -989,7 +989,7 @@ html { scroll-behavior: smooth; }
 /* Freeze the colour column so the row label stays put while scrolling sizes sideways. */
 .cstk-table .cstk-color { font-weight: 700; text-align: left; padding: 4px 10px; background: var(--surface); white-space: nowrap; position: sticky; left: 0; z-index: 2; }
 .cstk-table thead th:first-child { left: 0; z-index: 3; }
-.cstk-table .cstk-qty { width: 52px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 6px; text-align: center; font-size: 13px; }
+.cstk-table .cstk-qty { width: 52px; min-width: 48px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 6px; text-align: center; font-size: 16px; }
 .cstk-table .cstk-qty:focus { outline: none; border-color: var(--gold); }
 .stock-entry-item input[type="number"] { width: 56px; text-align: center; padding: 7px 6px; font-size: 13px; }
 
