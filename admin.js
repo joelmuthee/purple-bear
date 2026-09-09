@@ -3724,10 +3724,24 @@ async function checkForNewIgPosts() {
     renderIgSyncList();
     igSyncCommitRow.style.display = 'flex';
   } catch (err) {
-    igSyncStatus.textContent = '✗ ' + err.message;
+    igSyncStatus.textContent = '✗ ' + igSyncFriendlyError(err.message);
   } finally {
     igSyncCheckBtn.disabled = false;
   }
+}
+
+// The worker returns provider-level errors ("profile lookup 401 | apify: Monthly
+// usage hard limit exceeded"). Useful in a log, meaningless to a shop owner, so
+// say what it means for her and what to do next.
+function igSyncFriendlyError(msg) {
+  const m = String(msg || '');
+  if (/hard limit|quota|payment|402/i.test(m)) {
+    return 'Instagram sync is paused this month. Joel has been told, it will be back on shortly.';
+  }
+  if (/401|require_login|profile lookup|feed fetch|apify/i.test(m)) {
+    return "Could not reach Instagram just now. Try again in a few minutes, or add the item using '+ Add manually'.";
+  }
+  return m;
 }
 
 function renderIgSyncList() {

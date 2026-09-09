@@ -13,14 +13,16 @@ id = "7c49bd72e6994c46b72a442eb221b141"
 binding = "AI"
 
 # Crons, dispatched by event.cron in scheduled():
-#   "10 6 * * *"  →  9:10 EAT: IG auto-sync, morning wave (owner ask 2026-06-17:
-#                   thrice a day — morning + afternoon + evening)
-#   "10 10 * * *" → 13:10 EAT: IG auto-sync, afternoon wave (Ryker's stagger
-#                   offset is :10; Iman holds :00 [disabled], ThriftLux :20)
-#   "10 16 * * *" → 19:10 EAT: IG auto-sync, evening wave
 #   "0 17 * * *"  → 20:00 EAT: daily WhatsApp report (no-ops unless owner enabled it)
+#
+# NO IG auto-sync crons (Joel, 2026-09-09). Instagram now requires login, so
+# every pull goes through Apify, which bills per post FETCHED rather than per
+# new post found. Polling 3x a day costs about Ksh 420 a shop a month for
+# posts that are usually unchanged; the owner tapping "Check for new posts"
+# costs about Ksh 18. So sync is manual-button only. /api/autosync-run still
+# exists and works if it is ever called by hand.
 [triggers]
-crons = ["10 6 * * *", "10 10 * * *", "10 16 * * *", "0 17 * * *"]
+crons = ["0 17 * * *"]
 
 # Secrets — never committed:
 #   npx wrangler secret put ADMIN_TOKEN
