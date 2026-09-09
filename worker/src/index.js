@@ -416,7 +416,12 @@ async function fetchIgFeedViaApify(env, { username, count = 24 } = {}) {
       postUrl: shortcode ? `https://www.instagram.com/p/${shortcode}/` : (post.url || ""),
       takenAt: post.timestamp || null,
     };
-  }).filter(it => it.shortcode && it.imageUrl);
+  }).filter(it => it.shortcode && it.imageUrl)
+    // Apify's actor does not guarantee newest-first: a 3-post pull and a 12-post
+    // pull returned different posts first. Everything downstream (the review
+    // list, and catalog order, which IS the shop's "Featured" order) assumes
+    // Instagram order, so sort it here once rather than at every caller.
+    .sort((a, b) => String(b.takenAt || "").localeCompare(String(a.takenAt || "")));
   if (!items.length) return { error: "apify: no posts returned" };
   return {
     profile: { id: null, username: user },
@@ -1585,6 +1590,9 @@ export default {
       }
 
       // Newest first — prepend to the catalog
+      // Newest post first, whatever order the owner happened to tick them in.
+      // Catalog array order is the shop's Featured order, so this is what she sees.
+      newBags.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
       data.bags = newBags.concat(data.bags);
       await env.BAGS.put("data", JSON.stringify(data));
       for (const it of items) syncedCodes.add(it.shortcode);
