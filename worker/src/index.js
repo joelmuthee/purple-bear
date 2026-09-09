@@ -698,12 +698,11 @@ async function runDailyReport(env, force) {
 // Stagger offset: :10 past the wave hour (Iman holds :00 [disabled],
 // ThriftLux :20) — IG rate-limits by source IP and the fleet shares
 // Cloudflare egress IPs, so shops must not all fetch at the same second.
-const IG_AUTOSYNC_USER_ID = ""; // IG auto-sync DISABLED at owner request (manual upload only). Was "42076928572" (@purple_bearke).
+const IG_AUTOSYNC_USER_ID = "42076928572"; // @purple_bearke (re-enabled at owner request 2026-09-09)
 const API_ORIGIN = "https://purplebear-api.stawisystems.workers.dev";
 const AUTOSYNC_MAX_ITEMS = 20;
 
 async function runIgAutoSync(env) {
-  if (!IG_AUTOSYNC_USER_ID) return { ok: false, skipped: "ig disabled" }; // owner: manual upload only
   if (SUSPEND_LEVELS.includes(await env.BAGS.get("suspended"))) return { ok: false, skipped: "suspended" };
   let cfg;
   try { cfg = JSON.parse(await env.BAGS.get("autosync")) || {}; } catch { cfg = {}; }
