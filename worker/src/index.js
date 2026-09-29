@@ -920,6 +920,7 @@ export default {
       data.suspended = SUSPEND_LEVELS.includes(_sus);
       data.suspendLevel = _sus === "admin" ? "admin" : (_sus === "1" ? "full" : null);
       data.suspendDue = SUSPEND_LEVELS.includes(_sus) ? ((await env.BAGS.get("suspend_due")) || null) : null;
+      data.suspendOwed = SUSPEND_LEVELS.includes(_sus) ? (Number(await env.BAGS.get("suspend_owed")) || null) : null;
       // "client" (paid lapse) -> neutral offline page; "prospect" (default) -> win-back pitch.
       data.suspend_mode = (await env.BAGS.get("suspend_mode")) || "prospect";
       // PRIVACY: strip buyer PII (sales[].buyerName/buyerPhone/notes, soldTo) for
@@ -969,6 +970,8 @@ export default {
       // written by a pause that carries one; a restore always clears it.
       if (!suspended) await env.BAGS.delete("suspend_due");
       else if (/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(body.due || ""))) await env.BAGS.put("suspend_due", body.due);
+      if (!suspended) await env.BAGS.delete("suspend_owed");
+      else if (Number(body.owed) > 0) await env.BAGS.put("suspend_owed", String(Math.round(Number(body.owed))));
       await env.BAGS.put("suspended", suspended ? (adminOnly ? "admin" : "1") : "0");
       const mode = (await env.BAGS.get("suspend_mode")) || "prospect";
       return json({ ok: true, suspended, level: suspended ? (adminOnly ? "admin" : "full") : null, mode });
