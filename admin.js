@@ -1950,6 +1950,29 @@ const INV_PAGE_SIZE = 15;
 
 // Stock taking, laid out the way Purity counts: one block per section (category),
 // each row = picture, code, name, units left, buying price, selling price.
+// Excel download of the catalog: code, name, section, boys/girls and a photo
+// link per item. CSV with a UTF-8 BOM so Excel shows names correctly; the
+// photo column is a HYPERLINK formula so each row opens its current picture.
+function exportStockList() {
+  const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const forLabel = g => g === 'boy' ? 'Boys' : g === 'girl' ? 'Girls' : 'Boys & Girls';
+  const abs = u => !u ? '' : (/^https?:/i.test(u) ? u : new URL(u, location.origin).href);
+  const rows = bags.slice()
+    .sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''))
+    .map(b => {
+      const img = abs(b.image);
+      return [esc(b.code || ''), esc(b.name || ''), esc(b.category || ''), esc(forLabel(b.gender)),
+        img ? esc('=HYPERLINK("' + img.replace(/"/g, '') + '","View photo")') : '""', esc(img)].join(',');
+    });
+  const csv = String.fromCharCode(0xFEFF) + ['Code,Product name,Section,For,Photo,Photo link'].concat(rows).join(String.fromCharCode(13, 10));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'purple-bear-products-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+document.getElementById('stockExportBtn')?.addEventListener('click', exportStockList);
+
 function renderStockTaking() {
   const box = document.getElementById('stockTakeBody');
   if (!box) return;
