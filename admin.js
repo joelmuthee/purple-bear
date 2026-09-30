@@ -1944,8 +1944,12 @@ function renderDashboard() {
 
 // ====== INVENTORY ======
 // State for the inventory table view
-let invFilter = 'attention'; // 'attention' | 'all'
-let invShowAll = false;       // false = cap at INV_PAGE_SIZE
+// Opens on EVERY item, uncapped. The owner uses this table to answer "which
+// sizes do you have?" while replying to customers; opening on "Needs
+// attention" (5 or fewer left, 15 rows) meant she only ever saw sizes for
+// low-stock items and read that as "only low stock shows sizes".
+let invFilter = 'all'; // 'attention' | 'all'
+let invShowAll = true; // false = cap at INV_PAGE_SIZE
 const INV_PAGE_SIZE = 15;
 
 // Stock taking, laid out the way Purity counts: one block per section (category),
