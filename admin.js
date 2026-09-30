@@ -2016,11 +2016,23 @@ function renderStockTaking() {
 // Available sizes as chips on every All-items card, so the owner can answer
 // "do you have a 28?" at a glance on her phone. Only sizes with stock are
 // shown; the same chip colours as the Inventory table (amber = 3 or fewer).
+// Letter sizes sort by garment order (S, M, L, XL), not alphabetically,
+// which would give L, M, S, XL.
+const SIZE_LETTER_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL'];
+function sizeRank(sz) {
+  const s = String(sz).trim().toUpperCase();
+  const li = SIZE_LETTER_ORDER.indexOf(s);
+  if (li !== -1) return [0, li];
+  const n = parseFloat(s.replace(/^[A-Z]+\s*/, ''));
+  return isNaN(n) ? [2, 0] : [1, n];
+}
 function sizeChips(bag) {
   const entries = Object.entries(bag.stock || {});
   if (!entries.length) return '<span style="color:#999;font-size:12px;">No sizes set</span>';
-  const avail = entries.filter(([, q]) => Number(q) > 0)
-    .sort(([a], [b]) => (parseFloat(a) - parseFloat(b)) || String(a).localeCompare(String(b)));
+  const avail = entries.filter(([, q]) => Number(q) > 0).sort(([a], [b]) => {
+    const ra = sizeRank(a), rb = sizeRank(b);
+    return (ra[0] - rb[0]) || (ra[1] - rb[1]) || String(a).localeCompare(String(b));
+  });
   if (!avail.length) return '<span class="stock-cell zero">Out of stock</span>';
   return avail.map(([sz, q]) => `<span class="stock-cell ${Number(q) <= 3 ? 'low' : 'ok'}">${escapeHtml(sz)}: ${q}</span>`).join('');
 }
