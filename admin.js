@@ -2013,6 +2013,18 @@ function renderStockTaking() {
   box.innerHTML = html;
 }
 
+// Available sizes as chips on every All-items card, so the owner can answer
+// "do you have a 28?" at a glance on her phone. Only sizes with stock are
+// shown; the same chip colours as the Inventory table (amber = 3 or fewer).
+function sizeChips(bag) {
+  const entries = Object.entries(bag.stock || {});
+  if (!entries.length) return '<span style="color:#999;font-size:12px;">No sizes set</span>';
+  const avail = entries.filter(([, q]) => Number(q) > 0)
+    .sort(([a], [b]) => (parseFloat(a) - parseFloat(b)) || String(a).localeCompare(String(b)));
+  if (!avail.length) return '<span class="stock-cell zero">Out of stock</span>';
+  return avail.map(([sz, q]) => `<span class="stock-cell ${Number(q) <= 3 ? 'low' : 'ok'}">${escapeHtml(sz)}: ${q}</span>`).join('');
+}
+
 function renderInventory() {
   renderStockTaking();
   let totalItems = bags.length;
@@ -2155,7 +2167,6 @@ function renderList() {
   list.innerHTML = filtered.map(bag => {
     const units = totalStock(bag);
     const sold = totalUnitsSold(bag);
-    const stockSummary = Object.entries(bag.stock || {}).map(([sz, q]) => `${sz}:${q}`).join(' · ') || 'No stock set';
     const checked = bulkSelected.has(bag.id);
     const addedIso = itemAddedAt(bag);
     return `
@@ -2174,7 +2185,8 @@ function renderList() {
         }<span class="admin-card-mobile-stock"> · ${units} in stock</span>${(!isSoldOut(bag) && bag.boostedAt) ? (boostDaysLeft(bag) > 0
           ? ` · <span style="color:#8a6d3b;font-weight:700;">⬆ BOOSTED · ${boostDaysLeft(bag)} day${boostDaysLeft(bag) === 1 ? '' : 's'} left</span>`
           : ' · <span style="color:#999;font-weight:700;">⬆ boost expired</span>') : ''}</div>
-        <div class="admin-card-stock">${units} in stock · ${sold} sold | ${stockSummary}</div>
+        <div class="admin-card-stock">${units} in stock · ${sold} sold</div>
+        <div class="stock-cells admin-card-sizes">${sizeChips(bag)}</div>
         ${addedIso ? `<div class="admin-card-added" title="Added ${new Date(addedIso).toLocaleString('en-KE')}">Added ${relTime(addedIso)}</div>` : ''}
         <div class="admin-card-actions">
           <button onclick="editItem('${bag.id}')">Edit</button>
