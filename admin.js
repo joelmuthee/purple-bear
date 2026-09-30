@@ -14,6 +14,7 @@ const RECEIPT_IMAGE_ENABLED = true;
 let bags = [];
 let settings = {};
 let clients = []; // manually-added clients (server-synced); sale buyers are derived separately
+let demand = []; // "asked for" log, admin-only, server-synced (shop-extras.js)
 let expenses = []; // operating expenses (ad spend, packaging, etc.) — admin-only, server-synced
 let editingId = null;
 let stagedImage = null; // { base64, ext, dataUrl }
@@ -180,7 +181,7 @@ async function apiPublish() {
   const res = await fetch(`${API_BASE}/api/bulk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_TOKEN}` },
-    body: JSON.stringify({ bags, settings, clients, expenses }),
+    body: JSON.stringify({ bags, settings, clients, expenses, demand }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Save failed: ${res.status}`); }
 }
@@ -200,6 +201,7 @@ async function apiMutateAndPublish(mutate) {
   settings = json.settings || {};
   clients = Array.isArray(json.clients) ? json.clients : [];
   expenses = Array.isArray(json.expenses) ? json.expenses : [];
+  demand = Array.isArray(json.demand) ? json.demand : [];
   await mutate();
   await apiPublish();
 }
@@ -216,6 +218,7 @@ async function loadData() {
   settings = json.settings || {};
   clients = Array.isArray(json.clients) ? json.clients : [];
   expenses = Array.isArray(json.expenses) ? json.expenses : [];
+  demand = Array.isArray(json.demand) ? json.demand : [];
   accountSuspended = !!json.suspended; suspendLevel = json.suspendLevel || null; suspendDue = json.suspendDue || null; suspendOwed = json.suspendOwed || null; billingNotice = json.billingNotice || null;
 }
 
@@ -2042,6 +2045,7 @@ function sizeChips(bag) {
 }
 
 function renderInventory() {
+  if (window.renderExtras) window.renderExtras();
   renderStockTaking();
   let totalItems = bags.length;
   let totalUnits = 0, totalValue = 0, lowStock = 0, outOfStock = 0;
@@ -2206,6 +2210,7 @@ function renderList() {
         ${addedIso ? `<div class="admin-card-added" title="Added ${new Date(addedIso).toLocaleString('en-KE')}">Added ${relTime(addedIso)}</div>` : ''}
         <div class="admin-card-actions">
           <button onclick="editItem('${bag.id}')">Edit</button>
+          ${totalStock(bag) > 0 ? `<button class="sx-send" onclick="sendToCustomer('${bag.id}')">Send to customer</button>` : ''}
           <button onclick="openSaleModal('${bag.id}')" style="background:#f0faf4;border-color:#b0d8c0;color:#1a7a40;">Sell</button>
           <button onclick="openRestockModal('${bag.id}')">Restock</button>
           <button class="danger" onclick="deleteItem('${bag.id}')">Delete</button>
