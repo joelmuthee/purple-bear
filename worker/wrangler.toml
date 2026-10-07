@@ -18,9 +18,10 @@ binding = "AI"
 # NO IG auto-sync crons (Joel, 2026-09-09). Instagram now requires login, so
 # every pull goes through Apify, which bills per post FETCHED rather than per
 # new post found. Polling 3x a day costs about Ksh 420 a shop a month for
-# posts that are usually unchanged; the owner tapping "Check for new posts"
-# costs about Ksh 18. So sync is manual-button only. /api/autosync-run still
-# exists and works if it is ever called by hand.
+# posts that are usually unchanged. So sync is manual-button only, and since
+# 2026-10-07 the button fetches only posts newer than the shop has already
+# seen: a tap with nothing new costs $0, new posts ~Ksh 0.30 each, max 2
+# checks a day (see CATALOG-STANDARDS.md). /api/autosync-run still exists.
 [triggers]
 crons = ["0 17 * * *"]
 
