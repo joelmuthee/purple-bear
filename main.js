@@ -140,6 +140,63 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
 
   function fmtPrice(n) { return 'Ksh ' + Number(n).toLocaleString('en-KE'); }
 
+  // Hero collage: four real pairs from the live catalog, newest first, priced
+  // and in stock, mixing the shop's three biggest categories. Nothing invented:
+  // fewer qualifying pairs means fewer tiles, none and the collage hides.
+  function buildHeroCollage() {
+    const box = document.getElementById('heroCollage');
+    if (!box) return;
+    const ok = i => i.image && Number(i.price) > 0 && i.category && !isSoldOut(i);
+    const newest = (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    const byCat = {};
+    items.filter(ok).sort(newest).forEach(i => { (byCat[i.category] = byCat[i.category] || []).push(i); });
+    const cats = Object.keys(byCat).sort((a, b) => byCat[b].length - byCat[a].length).slice(0, 3);
+    const pick = [];
+    for (let round = 0; pick.length < 4 && cats.some(c => byCat[c][round]); round++) {
+      cats.forEach(c => { if (pick.length < 4 && byCat[c][round]) pick.push(byCat[c][round]); });
+    }
+    box.innerHTML = pick.map(i => `<a class="hc-tile" href="#shop" data-hero-cat="${escapeHtml(i.category)}">
+        <img class="hc-img" src="${escapeHtml(i.image)}" alt="${escapeHtml(i.name)}" loading="eager">
+        <span class="hc-price">${fmtPrice(effectivePrice(i))}</span>
+      </a>`).join('');
+    // Entrance motion is opt-in and self-healing: the class is removed after the
+    // animation should have finished, so a missed frame never leaves a tile hidden.
+    if (pick.length && !reducedMotion) {
+      box.classList.add('hc-anim');
+      setTimeout(() => box.classList.remove('hc-anim'), 1400);
+    }
+  }
+
+  // Shop by category: one real photo and the live count per category, biggest first.
+  function buildCatRow() {
+    const row = document.getElementById('catRow'), grid = document.getElementById('catRowGrid');
+    if (!row || !grid) return;
+    const live = items.filter(i => !isSoldOut(i));
+    const cats = [...new Set(live.map(i => i.category).filter(Boolean))]
+      .map(c => ({ c, list: live.filter(i => i.category === c) }))
+      .sort((a, b) => b.list.length - a.list.length);
+    if (cats.length < 2) return;
+    grid.innerHTML = cats.map(({ c, list }) => {
+      const img = (list.find(i => i.image) || {}).image || '';
+      return `<button type="button" class="cat-tile" data-hero-cat="${escapeHtml(c)}">
+        ${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">` : ''}
+        <span class="cat-tile-name">${escapeHtml(c)}</span>
+        <span class="cat-tile-count">${list.length} pair${list.length === 1 ? '' : 's'}</span>
+      </button>`;
+    }).join('');
+    row.hidden = false;
+  }
+
+  // A hero tile or category tile filters the shop to that category and scrolls to it.
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-hero-cat]');
+    if (!t) return;
+    e.preventDefault();
+    const c = t.dataset.heroCat;
+    if (c) { currentCat = c; currentSize = 'all'; currentPage = 1; render(); }
+    document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   function totalStock(item) {
     if (!item.stock || Object.keys(item.stock).length === 0) return 1; // unconfigured = treat as in stock
     return Object.values(item.stock).reduce((s, q) => s + (q || 0), 0);
@@ -1028,4 +1085,6 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
   await loadData();
   if (suspended) { showSuspended(); return; }
   render();
+  buildHeroCollage();
+  buildCatRow();
 })();
