@@ -1798,3 +1798,9 @@ summary.dash-summary:hover .dash-title { color: var(--gold-deep); }
   .inv-c-status { grid-area: st; }
   .inv-c-act { grid-area: act; text-align: right; }
 }
+
+/* Owner login in the footer: the owner asked for a way into the admin from the
+   shop itself instead of keeping a separate link. Quiet so shoppers skip it,
+   padded so it is still an easy tap on a phone. */
+.footer-login { color: inherit; text-decoration: underline; text-underline-offset: 3px; display: inline-block; padding: 10px 0; }
+.footer-login:hover { color: #fff; }

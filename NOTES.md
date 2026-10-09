@@ -46,3 +46,7 @@ Enquiry messages now end with `https://www.purplebear.co.ke/p/<id>` instead of
 Worker route is impossible; `functions/p/[id].js` (a Pages Function) passes `/p/*` to the
 purplebear-api worker through the `API` service binding set on the Pages project. `main.js` builds
 links from `SHARE_BASE`. Preview card unchanged.
+
+## 2026-10-09 · Owner login link in the shop footer
+Purity asked for a way into the admin from the shop itself instead of keeping a separate link. Added a quiet "Owner login" link to the footer bottom row, pointing at `/admin`, `rel="nofollow"` (robots.txt already disallows `/admin`). Underlined, inherits the footer colour, 10px vertical padding so it is a ~39px tap target. Verified at 375px: inside the screen, no sideways scroll, tap lands on the admin password screen. Purple Bear only; other shops not changed.
+
