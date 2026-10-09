@@ -1,6 +1,8 @@
 // Purple Bear — public catalog
 const IMG_VERSION = 'v1';
 const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
+// Product links in WhatsApp messages use the shop's own domain (functions/p/[id].js).
+const SHARE_BASE = 'https://www.purplebear.co.ke';
 (async function () {
   const gallery = document.getElementById('gallery');
   const filterMeta = document.getElementById('filterMeta');
@@ -279,7 +281,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     const body = enquireBody(item, soldOut, selectedSize, selectedColor);
     // Append the item's /p/<id> share page — WhatsApp previews it as a card with the
     // product photo + name + price. Still opens straight to WhatsApp (no app picker).
-    const shareUrl = item.id ? `${API_BASE}/p/${encodeURIComponent(item.id)}` : '';
+    const shareUrl = item.id ? `${SHARE_BASE}/p/${encodeURIComponent(item.id)}` : '';
     const msg = shareUrl ? `${body}\n\n${shareUrl}` : body;
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
   }
@@ -948,7 +950,7 @@ const API_BASE = 'https://purplebear-api.stawisystems.workers.dev';
     const lines = items_saved.map((i, idx) => {
       const size = chosen[i.id] ? ` (${chosen[i.id]})` : '';
       const price = i.price > 0 ? ' (' + fmtPrice(i.price) + ')' : '';
-      const link = i.id ? `\n${API_BASE}/p/${encodeURIComponent(i.id)}` : '';
+      const link = i.id ? `\n${SHARE_BASE}/p/${encodeURIComponent(i.id)}` : '';
       return `${idx + 1}. *${i.name}*${size}${price}${link}`;
     });
     const msg = `Hi Purple Bear! I'd like to enquire about these saved items:\n\n${lines.join('\n\n')}\n\nAre they available?`;

@@ -38,3 +38,11 @@ collage.
   edge except card carousel slides (by design, clipped), no input under 90px, all hero tiles
   and category tiles inside the viewport, nothing left under 0.9 opacity after a full scroll
   except the card carousel arrows and the disabled pager button (both by design).
+
+## Short WhatsApp product links (2026-10-09)
+
+Enquiry messages now end with `https://www.purplebear.co.ke/p/<id>` instead of
+`purplebear-api.stawisystems.workers.dev/p/<id>`. The domain is on Purity's own Cloudflare, so a
+Worker route is impossible; `functions/p/[id].js` (a Pages Function) passes `/p/*` to the
+purplebear-api worker through the `API` service binding set on the Pages project. `main.js` builds
+links from `SHARE_BASE`. Preview card unchanged.
