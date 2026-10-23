@@ -50,27 +50,3 @@ links from `SHARE_BASE`. Preview card unchanged.
 ## 2026-10-09 · Owner login link in the shop footer
 Purity asked for a way into the admin from the shop itself instead of keeping a separate link. Added a quiet "Owner login" link to the footer bottom row, pointing at `/admin`, `rel="nofollow"` (robots.txt already disallows `/admin`). Underlined, inherits the footer colour, 10px vertical padding so it is a ~39px tap target. Verified at 375px: inside the screen, no sideways scroll, tap lands on the admin password screen. Purple Bear only; other shops not changed.
 
-
-## 2026-10-23 · Credit sales count on the day the money comes in
-
-Joel: a credit customer's payment (St. Joseph's) received today should show in today's sales.
-Before this, the whole sale value counted on the day the item was taken and later payments
-never moved any sales figure. Now:
-
-- **Ksh and profit follow the money.** `saleReceipts(bag, s)` turns a sale into dated
-  receipts: the deposit (`amountPaid`, or the full price when none was recorded) on
-  `soldAt`, then each `payments[]` entry on its own `at`, capped at the sale total.
-  Dashboard Today/Week/Month/All-time, the date-range report and the category totals all
-  sum those. Profit is each receipt's share of the margin (`receiptProfit`).
-- **Units still count on the day taken.** The stock left the shop that day.
-- **The lists add up to the takings.** Today's sales (Sell screen) and the range report
-  list a credit payment as its own row ("credit payment, taken 3 Oct"), and a credit sale
-  shows the amount paid plus "Ksh X on credit", so the rows equal Cash + M-Pesa.
-- **All time** now means money received; outstanding debt shows under it as
-  "+ Ksh X still owed" (same figure as the Owed tab).
-- Left alone on purpose: per-item revenue in Inventory and client "spent", which describe
-  what was bought, not when it was paid.
-
-Verified on a local copy with made-up zz sales (no live data touched): today = Ksh 4,500
-from a Ksh 2,000 credit payment + Ksh 2,000 cash sale + Ksh 500 deposit, matching the
-takings chips exactly. Bumped `admin.js?v=20261023creditpay`.
