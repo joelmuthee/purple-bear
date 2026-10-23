@@ -1707,17 +1707,26 @@ function renderCustomRange() {
   const from = new Date(fromV + 'T00:00:00');
   const to = new Date(toV + 'T23:59:59.999');
   if (from > to) { el.innerHTML = '<span style="color:#b00020;font-size:13px;">The "From" date is after the "To" date.</span>'; return; }
+  // Units count on the day the item was taken; Ksh and profit count on the day
+  // the money came in, so a credit sale's later payments land on their own days.
   let count = 0, revenue = 0, profit = 0, costKnown = 0, soldWithSale = 0;
   const rows = []; // the actual items sold, so she can see WHAT sold, not just how much
+  const inRange = iso => { const d = new Date(iso); return d >= from && d <= to; };
   bags.forEach(bag => {
     (bag.sales || []).forEach(s => {
-      const d = new Date(s.soldAt);
-      if (d >= from && d <= to) {
-        const qty = Number(s.qty) || 1;
-        const line = (Number(s.salePrice || bag.price)) * qty;
-        count += qty; revenue += line; soldWithSale++;
-        if (bag.cost) { profit += line - bag.cost * qty; costKnown++; }
-        rows.push({ bag, s, d, qty, line });
+      const taken = inRange(s.soldAt);
+      const got = saleReceipts(bag, s).filter(r => inRange(r.at));
+      if (!taken && !got.length) return;
+      const qty = Number(s.qty) || 1;
+      const line = got.reduce((sum, r) => sum + r.amount, 0);
+      revenue += line; soldWithSale++;
+      if (bag.cost) { profit += receiptProfit(bag, s, line); costKnown++; }
+      if (taken) {
+        count += qty;
+        rows.push({ bag, s, d: new Date(s.soldAt), qty, line, owes: saleTotal(bag, s) - line });
+      } else {
+        // A payment on something taken before this period: list it on the day it came in.
+        rows.push({ bag, s, d: new Date(got[got.length - 1].at), qty, line, payment: true });
       }
     });
   });
@@ -1730,7 +1739,7 @@ function renderCustomRange() {
   // shoes went out on the 25th?", which is the question the owner actually asks.
   const oneDay = fromV === toV;
   const itemsHtml = rows.length
-    ? rows.map(({ bag, s, d, qty, line }) => {
+    ? rows.map(({ bag, s, d, qty, line, owes, payment }) => {
         const bits = [escapeHtml(bag.name)];
         if (s.size && String(s.size).toLowerCase() !== 'one size') bits.push(escapeHtml(s.size));
         if (s.color) bits.push(escapeHtml(s.color));
@@ -1738,9 +1747,12 @@ function renderCustomRange() {
           ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
           : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
         const who = s.buyerName ? ` <span style="color:var(--ink-faint);">· ${escapeHtml(s.buyerName)}</span>` : '';
+        const tag = payment
+          ? ` <span style="color:var(--ink-faint);">· credit payment, taken ${fmtDate(s.soldAt)}</span>`
+          : (owes > 0 ? ` <span class="owed-amount">${fmtKsh(owes)} on credit</span>` : '');
         return `<div class="pos-today-row">
-          <span class="ptr-name">${bits.join(' · ')}${qty > 1 ? ` ×${qty}` : ''}${who}</span>
-          <span class="ptr-amt">${fmtKsh(line)}</span>
+          <span class="ptr-name">${bits.join(' · ')}${qty > 1 && !payment ? ` ×${qty}` : ''}${who}</span>
+          <span class="ptr-amt">${fmtKsh(line)}${tag}</span>
           <span class="ptr-time">${when}</span>
         </div>`;
       }).join('')
@@ -1797,32 +1809,33 @@ function renderDashboard() {
     { label: 'This month', since: startOfMonth(now) },
     { label: 'All time',   since: null },
   ].map(b => {
+    // Units on the day taken; Ksh on the day each payment came in (saleReceipts).
     let count = 0, revenue = 0;
     bags.forEach(bag => {
       (bag.sales || []).forEach(s => {
-        if (!b.since || new Date(s.soldAt) >= b.since) {
-          count += Number(s.qty) || 1;
-          revenue += (Number(s.salePrice || bag.price)) * (Number(s.qty) || 1);
-        }
+        if (!b.since || new Date(s.soldAt) >= b.since) count += Number(s.qty) || 1;
+        saleReceipts(bag, s).forEach(r => { if (!b.since || new Date(r.at) >= b.since) revenue += r.amount; });
       });
     });
     return { ...b, count, revenue };
   });
 
-  // All-time profit (admin-only) — sums realised − cost over ONLY the sold items
-  // that have a buying price recorded. costKnown = how many of the sold items
-  // carry a cost; soldItemsCount = all items with at least one sale (for the
-  // coverage note, so a partial figure isn't mistaken for total profit).
-  let profitAll = 0, costKnown = 0, soldItemsCount = 0;
+  // All-time profit (admin-only) — the profit share of money actually received,
+  // over ONLY the sold items that have a buying price recorded. costKnown = how
+  // many of the sold items carry a cost; soldItemsCount = all items with at least
+  // one sale (for the coverage note, so a partial figure isn't mistaken for total profit).
+  let profitAll = 0, costKnown = 0, soldItemsCount = 0, owedAll = 0;
   bags.forEach(bag => {
+    (bag.sales || []).forEach(s => { owedAll += saleBalance(bag, s); });
     const sold = totalUnitsSold(bag);
     if (sold <= 0) return;
     soldItemsCount++;
     if (bag.cost) {
-      profitAll += totalRevenue(bag) - bag.cost * sold;
+      (bag.sales || []).forEach(s => { profitAll += receiptProfit(bag, s, salePaid(bag, s)); });
       costKnown++;
     }
   });
+  profitAll = Math.round(profitAll);
 
   document.getElementById('kpiGrid').innerHTML = buckets.map(b => {
     let profitSub = '';
@@ -1839,7 +1852,7 @@ function renderDashboard() {
     <div class="kpi-card">
       <div class="kpi-label">${b.label}</div>
       <div class="kpi-count">${b.count} <span class="kpi-unit">units</span></div>
-      <div class="kpi-revenue">${fmtKsh(b.revenue)}</div>${profitSub}
+      <div class="kpi-revenue">${fmtKsh(b.revenue)}</div>${profitSub}${b.label === 'All time' && owedAll > 0 ? `<div class="kpi-profit" style="font-size:12px;margin-top:2px;"><span class="owed-amount">+ ${fmtKsh(owedAll)} still owed</span></div>` : ''}
     </div>`;
   }).join('');
 
@@ -1881,20 +1894,27 @@ function renderDashboard() {
     const rows = [];
     bags.forEach(bag => (bag.sales || []).forEach(s => {
       const when = new Date(s.soldAt);
-      if (when >= todayStart) rows.push({ bag, s, when });
+      if (when >= todayStart) { rows.push({ bag, s, when }); return; }
+      // Credit paid off today on something taken earlier: it counts in today's sales.
+      const got = saleReceipts(bag, s).filter(r => !r.first && new Date(r.at) >= todayStart);
+      if (got.length) rows.push({ bag, s, when: new Date(got[got.length - 1].at), paidToday: got.reduce((sum, r) => sum + r.amount, 0) });
     }));
     rows.sort((a, b) => b.when - a.when);
     if (!rows.length) {
       todayListEl.innerHTML = '<div class="pos-today-list-head">Today\'s sales</div><p class="pos-today-empty">No sales yet today.</p>';
     } else {
       todayListEl.innerHTML = '<div class="pos-today-list-head">Today\'s sales <span>(' + rows.length + ')</span></div>'
-        + rows.map(({ bag, s, when }) => {
+        + rows.map(({ bag, s, when, paidToday }) => {
+          const t = when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          if (paidToday != null) {
+            const who = s.buyerName ? ` · ${escapeHtml(s.buyerName)}` : '';
+            return `<div class="pos-today-row"><span class="ptr-name">${escapeHtml(bag.name)}${s.size ? ` · ${escapeHtml(s.size)}` : ''}${who} <span style="color:var(--ink-faint);">· credit payment, taken ${fmtDate(s.soldAt)}</span></span><span class="ptr-amt">${fmtKsh(paidToday)}</span><span class="ptr-time">${t}</span></div>`;
+          }
           const total = saleTotal(bag, s);
           const paid = (s.amountPaid != null) ? Math.min(total, Math.max(0, Number(s.amountPaid) || 0)) : total;
           const owed = Math.max(0, total - paid);
-          const t = when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
           const qtyTxt = (Number(s.qty) || 1) > 1 ? ` ×${s.qty}` : '';
-          return `<div class="pos-today-row"><span class="ptr-name">${escapeHtml(bag.name)}${s.size ? ` · ${escapeHtml(s.size)}` : ''}${s.color ? ` · ${escapeHtml(s.color)}` : ''}${qtyTxt}</span><span class="ptr-amt">${fmtKsh(total)}${owed > 0 ? ` <span class="owed-amount">owes ${fmtKsh(owed)}</span>` : ''}</span><span class="ptr-time">${t}</span></div>`;
+          return `<div class="pos-today-row"><span class="ptr-name">${escapeHtml(bag.name)}${s.size ? ` · ${escapeHtml(s.size)}` : ''}${s.color ? ` · ${escapeHtml(s.color)}` : ''}${qtyTxt}</span><span class="ptr-amt">${fmtKsh(paid)}${owed > 0 ? ` <span class="owed-amount">${fmtKsh(owed)} on credit</span>` : ''}</span><span class="ptr-time">${t}</span></div>`;
         }).join('');
     }
   }
@@ -1905,7 +1925,7 @@ function renderDashboard() {
     const cat = bag.category || 'Other';
     (bag.sales || []).forEach(s => {
       catUnits[cat] = (catUnits[cat] || 0) + (Number(s.qty) || 1);
-      catRev[cat] = (catRev[cat] || 0) + (Number(s.salePrice || bag.price)) * (Number(s.qty) || 1);
+      catRev[cat] = (catRev[cat] || 0) + salePaid(bag, s);
     });
   });
   const cats = Object.entries(catUnits).sort((a, b) => b[1] - a[1]).slice(0, 6);
@@ -3147,6 +3167,28 @@ function salePaid(bag, s) {
   return Math.min(total, initial + extra);
 }
 function saleBalance(bag, s) { return Math.max(0, saleTotal(bag, s) - salePaid(bag, s)); }
+
+// Money in for one sale, dated: the deposit on the sale day (the whole price when
+// no amountPaid was recorded), then each later payment on the day it came in,
+// capped at the sale total. Sales revenue and profit are counted from these, so
+// a credit sale lands on the days the money arrives, not the day it was taken.
+function saleReceipts(bag, s) {
+  const total = saleTotal(bag, s);
+  const out = [];
+  let left = total;
+  const first = (s.amountPaid != null) ? Math.min(total, Math.max(0, Number(s.amountPaid) || 0)) : total;
+  if (first > 0) { out.push({ amount: first, at: s.soldAt, first: true }); left -= first; }
+  [...(s.payments || [])].sort((a, b) => new Date(a.at) - new Date(b.at)).forEach(p => {
+    const amt = Math.min(left, Math.max(0, Number(p.amount) || 0));
+    if (amt > 0) { out.push({ amount: amt, at: p.at, first: false }); left -= amt; }
+  });
+  return out;
+}
+// The profit share of a payment, when the item's buying price is known.
+function receiptProfit(bag, s, amount) {
+  const total = saleTotal(bag, s);
+  return (bag.cost && total > 0) ? amount * (1 - bag.cost * (Number(s.qty) || 1) / total) : 0;
+}
 
 function owedByPhone() {
   const m = {};
